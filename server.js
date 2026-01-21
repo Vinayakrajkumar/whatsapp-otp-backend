@@ -45,7 +45,7 @@ app.post("/send-otp", async (req, res) => {
     // 2. NeoDove API Endpoint and Body
     const response = await axios({
       method: 'post',
-      url: 'https://connect.neodove.com/api/v1/whatsapp/send-template',
+      url: 'https://backend.api-wa.co/campaign/neodove/api/v2',
       headers: {
         // This 'Bearer' token provides the authorization the server is asking for
         'Authorization': `Bearer ${process.env.WHATSAPP_API_KEY}`,
