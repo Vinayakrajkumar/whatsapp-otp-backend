@@ -1,26 +1,42 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-require('dotenv').config(); // Good practice for Render
+const path = require('path'); // Required to fix file paths
+require('dotenv').config(); 
 
 const app = express();
 
-// --- THE FIX IS HERE ---
-app.use(express.json()); // Reads JSON
-app.use(express.urlencoded({ extended: true })); // Reads Form Data (Fixes 'undefined' issue)
-app.use(cors());
+// --- MIDDLEWARE ---
+app.use(express.json()); // Reads JSON body
+app.use(express.urlencoded({ extended: true })); // Reads Form Data
+app.use(cors()); // Allows frontend access
 
-// Your NeoDove Configuration
+// --- FIX FOR "CANNOT GET /" ERROR ---
+// 1. If you have an index.html in a 'public' folder, this serves it:
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 2. If no file is found, this message appears instead of the error:
+app.get('/', (req, res) => {
+    res.send(`
+        <div style="font-family: sans-serif; text-align: center; padding: 50px;">
+            <h1>✅ Backend is Live!</h1>
+            <p>Your OTP Server is running successfully.</p>
+            <p>Send POST requests to: <code>/send-otp</code></p>
+        </div>
+    `);
+});
+
+// --- NEODOVE CONFIGURATION ---
 const API_URL = 'https://backend.api-wa.co/campaign/neodove/api/v2';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw';
 
+// --- OTP ROUTE ---
 app.post('/send-otp', async (req, res) => {
-    // Log the entire body to debug what format is coming in
-    console.log("Raw Body:", req.body);
+    console.log("Raw Body:", req.body); // Debug log
 
     const { phoneNumber, userName, otpCode } = req.body;
 
-    // Safety Check: Stop if data is missing
+    // Safety Check
     if (!phoneNumber || !otpCode) {
         console.error("Missing Data! Phone or OTP is empty.");
         return res.status(400).json({ 
@@ -69,5 +85,7 @@ app.post('/send-otp', async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000; // Render sets its own PORT, so we must use process.env.PORT
+// --- SERVER START ---
+// Render assigns a port automatically using process.env.PORT
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
