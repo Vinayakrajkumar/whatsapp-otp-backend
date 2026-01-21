@@ -1,47 +1,46 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const path = require('path'); // Required to fix file paths
-require('dotenv').config(); 
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
 
-// --- MIDDLEWARE ---
-app.use(express.json()); // Reads JSON body
-app.use(express.urlencoded({ extended: true })); // Reads Form Data
-app.use(cors()); // Allows frontend access
+// --- 1. MIDDLEWARE ---
+app.use(express.json()); // Parses incoming JSON requests
+app.use(express.urlencoded({ extended: true })); // Parses form-submitted data
+app.use(cors()); // Allows your website to communicate with this server
 
-// --- FIX FOR "CANNOT GET /" ERROR ---
-// 1. If you have an index.html in a 'public' folder, this serves it:
-app.use(express.static(path.join(__dirname, 'public')));
-
-// 2. If no file is found, this message appears instead of the error:
+// --- 2. THE FIX FOR "CANNOT GET /" ---
+// This serves as a "Home Page" so Render knows the site is live.
 app.get('/', (req, res) => {
     res.send(`
-        <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-            <h1>✅ Backend is Live!</h1>
-            <p>Your OTP Server is running successfully.</p>
-            <p>Send POST requests to: <code>/send-otp</code></p>
+        <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+            <h1 style="color: #28a745;">✅ OTP Backend is Live</h1>
+            <p>Your server is running correctly on Render.</p>
+            <p>Ready to receive requests at <code>/send-otp</code></p>
         </div>
     `);
 });
 
-// --- NEODOVE CONFIGURATION ---
+// If you have an 'index.html' file in a 'public' folder, uncomment the line below:
+// app.use(express.static(path.join(__dirname, 'public')));
+
+// --- 3. NEODOVE CONFIGURATION ---
 const API_URL = 'https://backend.api-wa.co/campaign/neodove/api/v2';
 const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw';
 
-// --- OTP ROUTE ---
+// --- 4. OTP SENDING ROUTE ---
 app.post('/send-otp', async (req, res) => {
-    console.log("Raw Body:", req.body); // Debug log
+    console.log("Request received for:", req.body.phoneNumber);
 
     const { phoneNumber, userName, otpCode } = req.body;
 
-    // Safety Check
+    // Validate incoming data
     if (!phoneNumber || !otpCode) {
-        console.error("Missing Data! Phone or OTP is empty.");
         return res.status(400).json({ 
             success: false, 
-            message: "Data missing. Make sure you are sending phoneNumber and otpCode." 
+            message: "Required fields (phoneNumber, otpCode) are missing." 
         });
     }
 
@@ -51,7 +50,7 @@ app.post('/send-otp', async (req, res) => {
         destination: String(phoneNumber),
         userName: String(userName || "Valued User"),
         templateParams: [ String(userName || "User") ],
-        source: "new-landing-page form",
+        source: "website-otp-form",
         media: {},
         buttons: [
             {
@@ -61,7 +60,7 @@ app.post('/send-otp', async (req, res) => {
                 parameters: [
                     {
                         type: "text",
-                        text: String(otpCode)
+                        text: String(otpCode) // Your dynamic OTP
                     }
                 ]
             }
@@ -76,16 +75,25 @@ app.post('/send-otp', async (req, res) => {
         const response = await axios.post(API_URL, payload, {
             headers: { "Content-Type": "application/json" }
         });
-        console.log("Success:", response.data);
-        res.json({ success: true, message: "OTP Sent successfully", data: response.data });
+        
+        res.json({ 
+            success: true, 
+            message: "OTP sent successfully via WhatsApp", 
+            neodove_response: response.data 
+        });
 
     } catch (error) {
-        console.error("NeoDove Error:", error.response ? error.response.data : error.message);
-        res.status(500).json({ success: false, message: "Failed to send OTP" });
+        console.error("NeoDove API Error:", error.response ? error.response.data : error.message);
+        res.status(500).json({ 
+            success: false, 
+            message: "NeoDove API failed to send message." 
+        });
     }
 });
 
-// --- SERVER START ---
-// Render assigns a port automatically using process.env.PORT
+// --- 5. RENDER PORT BINDING ---
+// Render expects your app to listen on 0.0.0.0 and use their PORT variable
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
+});
