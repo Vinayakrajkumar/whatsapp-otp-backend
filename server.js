@@ -52,7 +52,7 @@ app.post("/send-otp", async (req, res) => {
       },
       data: {
         phoneNumber: formattedPhone,
-        templateId: process.env.NEODOVE_TEMPLATE_NAME,
+        templateId: "web_quiz_otpp",
         placeholders: [otp] // Correct Array format for single placeholder {{1}}
       }
     });
