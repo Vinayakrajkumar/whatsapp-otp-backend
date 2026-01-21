@@ -37,7 +37,7 @@ app.post("/send-otp", async (req, res) => {
     // 2. NeoDove API Endpoint and Body
     const response = await axios({
       method: 'post',
-      url: 'https://connect.neodove.com/api/v1/whatsapp/send-template',
+      url: 'https://backend.api-wa.co/campaign/neodove/api/v2',
       headers: {
         'Authorization': `Bearer ${process.env.WHATSAPP_API_KEY}`,
         'Content-Type': 'application/json'
