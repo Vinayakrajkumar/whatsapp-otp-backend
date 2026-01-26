@@ -49,7 +49,7 @@ app.post('/send-otp', async (req, res) => {
         campaignName: "OTP5",
         destination: String(phoneNumber),
         userName: String(userName || "Valued User"),
-        templateParams: [ String(userName || "User") ],
+      templateParams: [ String(otpCode) ],
         source: "website-otp-form",
         media: {},
         buttons: [
