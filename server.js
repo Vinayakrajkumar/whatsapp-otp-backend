@@ -46,7 +46,7 @@ app.post('/send-otp', async (req, res) => {
 
     const payload = {
         apiKey: API_KEY,
-        campaignName: "otpweb2",
+        campaignName: "OTPTRIAL",
         destination: String(phoneNumber),
         userName: String(userName || "Valued User"),
         templateParams: [ String(userName || "User") ],
