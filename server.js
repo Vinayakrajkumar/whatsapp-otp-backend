@@ -1,7 +1,6 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-require("dotenv").config();
 
 const app = express();
 
@@ -18,7 +17,7 @@ app.use(cors());
 app.get("/", (req, res) => {
   res.send(`
     <h2 style="font-family: Arial">✅ OTP Backend is Live</h2>
-    <p>POST endpoint available at <code>/send-otp</code></p>
+    <p>POST endpoint: <code>/send-otp</code></p>
   `);
 });
 
@@ -27,13 +26,13 @@ app.get("/", (req, res) => {
 ========================= */
 const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 
-// ⚠️ Recommended: keep this in Render ENV, but hardcoded also works
+/* 🔴 YOUR WHATSAPP (NEODOVE) API KEY */
 const NEODOVE_API_KEY =
-  process.env.NEODOVE_API_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
 
 const NEODOVE_CAMPAIGN_NAME = "OTP5";
 
+/* GOOGLE SHEET WEB APP URL */
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
 
@@ -51,7 +50,6 @@ app.post("/send-otp", async (req, res) => {
       otpCode
     } = req.body;
 
-    // Basic validation
     if (!phoneNumber || !otpCode) {
       return res.status(400).json({
         success: false,
@@ -59,39 +57,52 @@ app.post("/send-otp", async (req, res) => {
       });
     }
 
-    console.log("📩 OTP request for:", phoneNumber);
+    /* ✅ FORMAT PHONE NUMBER (INDIA) */
+    let formattedNumber = phoneNumber.replace(/\D/g, "");
 
-    /* ---------- NeoDove OTP PAYLOAD ---------- */
+    if (formattedNumber.length === 10) {
+      formattedNumber = "91" + formattedNumber;
+    }
+
+    if (!formattedNumber.startsWith("91") || formattedNumber.length !== 12) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid phone number format"
+      });
+    }
+
+    console.log("📩 OTP request for:", formattedNumber);
+
+    /* ---------- SEND OTP VIA NEODOVE ---------- */
     const neodovePayload = {
       apiKey: NEODOVE_API_KEY,
       campaignName: NEODOVE_CAMPAIGN_NAME,
-      destination: String(phoneNumber),
-      userName: "Student",              // ✅ REQUIRED & SAFE
+      destination: formattedNumber,
+      userName: "Student",          // REQUIRED BY NEODOVE
       templateParams: [String(otpCode)],
       source: "website-otp-form"
     };
 
-    // 1️⃣ Send OTP via NeoDove
     await axios.post(NEODOVE_API_URL, neodovePayload, {
       headers: { "Content-Type": "application/json" }
     });
 
     console.log("✅ OTP sent via NeoDove");
 
-    /* ---------- SAVE TO GOOGLE SHEET ---------- */
+    /* ---------- SAVE DATA TO GOOGLE SHEET ---------- */
     await axios.post(GOOGLE_SHEET_URL, {
       name: name || "",
       board: board || "",
       city: city || "",
       course: course || "",
-      phone: phoneNumber
+      phone: formattedNumber
     });
 
     console.log("📊 Data saved to Google Sheet");
 
     return res.json({
       success: true,
-      message: "OTP sent and data saved"
+      message: "OTP sent & data saved"
     });
 
   } catch (error) {
