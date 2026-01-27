@@ -17,8 +17,8 @@ app.use(cors());
 ========================= */
 app.get("/", (req, res) => {
   res.send(`
-    <h2 style="font-family:Arial">✅ OTP Backend is Live</h2>
-    <p>POST endpoint: <code>/send-otp</code></p>
+    <h2 style="font-family: Arial">✅ OTP Backend is Live</h2>
+    <p>POST endpoint available at <code>/send-otp</code></p>
   `);
 });
 
@@ -26,7 +26,12 @@ app.get("/", (req, res) => {
    3. CONFIGURATION
 ========================= */
 const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
-const NEODOVE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";   // 🔑 from Render
+
+// ⚠️ Recommended: keep this in Render ENV, but hardcoded also works
+const NEODOVE_API_KEY =
+  process.env.NEODOVE_API_KEY ||
+  "PASTE_YOUR_NEODOVE_API_KEY_HERE";
+
 const NEODOVE_CAMPAIGN_NAME = "OTP5";
 
 const GOOGLE_SHEET_URL =
@@ -56,22 +61,24 @@ app.post("/send-otp", async (req, res) => {
 
     console.log("📩 OTP request for:", phoneNumber);
 
-    /* ---------- NeoDove OTP ---------- */
+    /* ---------- NeoDove OTP PAYLOAD ---------- */
     const neodovePayload = {
       apiKey: NEODOVE_API_KEY,
       campaignName: NEODOVE_CAMPAIGN_NAME,
       destination: String(phoneNumber),
-      templateParams: [ String(otpCode) ],
+      userName: "Student",              // ✅ REQUIRED & SAFE
+      templateParams: [String(otpCode)],
       source: "website-otp-form"
     };
 
+    // 1️⃣ Send OTP via NeoDove
     await axios.post(NEODOVE_API_URL, neodovePayload, {
       headers: { "Content-Type": "application/json" }
     });
 
     console.log("✅ OTP sent via NeoDove");
 
-    /* ---------- Google Sheet Insert ---------- */
+    /* ---------- SAVE TO GOOGLE SHEET ---------- */
     await axios.post(GOOGLE_SHEET_URL, {
       name: name || "",
       board: board || "",
@@ -84,7 +91,7 @@ app.post("/send-otp", async (req, res) => {
 
     return res.json({
       success: true,
-      message: "OTP sent & data saved"
+      message: "OTP sent and data saved"
     });
 
   } catch (error) {
@@ -107,4 +114,3 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
-
