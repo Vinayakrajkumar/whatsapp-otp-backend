@@ -26,10 +26,10 @@ app.get("/", (req, res) => {
 ========================= */
 const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 
-/* 🔐 API KEY FROM RENDER ENV (SECURE) */
+/* 🔐 API KEY FROM RENDER ENV */
 const NEODOVE_API_KEY = process.env.NEODOVE_API_KEY;
 
-/* ⚠️ MUST MATCH NEODOVE DASHBOARD EXACTLY */
+/* ⚠️ MUST MATCH NEO DOVE EXACTLY */
 const NEODOVE_CAMPAIGN_NAME = "OTP5";
 
 /* GOOGLE SHEET WEB APP URL */
@@ -50,7 +50,7 @@ app.post("/send-otp", async (req, res) => {
       otpCode
     } = req.body;
 
-    /* ---------- VALIDATION ---------- */
+    /* ---------- BASIC VALIDATION ---------- */
     if (!phoneNumber || !otpCode) {
       return res.status(400).json({
         success: false,
@@ -61,7 +61,7 @@ app.post("/send-otp", async (req, res) => {
     if (!NEODOVE_API_KEY) {
       return res.status(500).json({
         success: false,
-        message: "NeoDove API key missing in environment variables"
+        message: "NeoDove API key not found in environment variables"
       });
     }
 
@@ -86,10 +86,9 @@ app.post("/send-otp", async (req, res) => {
       apiKey: NEODOVE_API_KEY,
       campaignName: NEODOVE_CAMPAIGN_NAME,
       destination: formattedNumber,
-      userName: "Student",
+      userName: "Student",                // NOT a template variable
       templateParams: [
-        "Student",          // {{1}}
-        String(otpCode)     // {{2}}
+        String(otpCode)                   // {{1}} ONLY
       ],
       source: "website-otp-form"
     };
