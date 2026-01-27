@@ -1,72 +1,72 @@
-const express = require("express");
-const axios = require("axios");
-const cors = require("cors");
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-/* =========================
-   CONFIGURATION
-========================= */
-const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
-const NEODOVE_API_KEY = process.env.NEODOVE_API_KEY;
-const NEODOVE_CAMPAIGN_NAME = "OTP5"; // The Campaign Name from your successful test
+// --- 1. HOME PAGE ---
+app.get('/', (req, res) => {
+    res.send('<h1 style="font-family: Arial;">✅ OTP Backend is Live</h1>');
+});
 
+// --- 2. CONFIGURATION ---
+const API_URL = 'https://backend.api-wa.co/campaign/neodove/api/v2';
+const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw';
+const CAMPAIGN_NAME = "OTP5"; // Restored to your working campaign
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
 
-/* =========================
-   SEND OTP ENDPOINT
-========================= */
-app.post("/send-otp", async (req, res) => {
-  try {
-    const { name, board, city, course, phoneNumber, otpCode } = req.body;
+// --- 3. OTP SENDING + GOOGLE SHEET ROUTE ---
+app.post('/send-otp', async (req, res) => {
+    const { phoneNumber, name, board, city, course, otpCode } = req.body;
 
-    // 1. Format Phone Number to exactly 12 digits (91XXXXXXXXXX)
-    let formattedNumber = phoneNumber.replace(/\D/g, "");
-    if (formattedNumber.length === 10) {
-      formattedNumber = "91" + formattedNumber;
+    // Validate
+    if (!phoneNumber || !otpCode) {
+        return res.status(400).json({ success: false, message: "Missing phone or OTP" });
     }
 
-    if (formattedNumber.length !== 12) {
-      return res.status(400).json({ success: false, message: "Invalid 10-digit number" });
-    }
+    // Format Number for NeoDove (91XXXXXXXXXX)
+    let formattedPhone = phoneNumber.replace(/\D/g, "");
+    if (formattedPhone.length === 10) formattedPhone = "91" + formattedPhone;
 
-    // 2. Prepare NeoDove Payload
+    // --- STEP A: SEND WHATSAPP OTP ---
     const neodovePayload = {
-      apiKey: NEODOVE_API_KEY,
-      campaignName: NEODOVE_CAMPAIGN_NAME,
-      destination: formattedNumber,
-      userName: name || "Student",
-      templateParams: [
-        String(otpCode) // Matches the single variable {{1}} in your message
-      ],
-      source: "website-form"
+        apiKey: API_KEY,
+        campaignName: CAMPAIGN_NAME,
+        destination: formattedPhone,
+        userName: name || "Student",
+        templateParams: [ String(otpCode) ], // Matches {{1}} in "____ is your verification code"
+        source: "website-otp-form"
     };
 
-    // 3. Send to NeoDove
-    const ndResponse = await axios.post(NEODOVE_API_URL, neodovePayload);
-    console.log("✅ NeoDove Status:", ndResponse.data);
+    try {
+        // 1. Send WhatsApp
+        const waResponse = await axios.post(API_URL, neodovePayload);
+        console.log("✅ WhatsApp Sent:", waResponse.data);
 
-    // 4. Save to Google Sheet
-    await axios.post(GOOGLE_SHEET_URL, {
-      name: name || "",
-      board: board || "",
-      city: city || "",
-      course: course || "",
-      phone: formattedNumber
-    });
+        // 2. Save to Google Sheets
+        await axios.post(GOOGLE_SHEET_URL, {
+            name: name || "",
+            board: board || "",
+            city: city || "",
+            course: course || "",
+            phone: formattedPhone
+        });
+        console.log("📊 Data saved to Sheets");
 
-    res.json({ success: true, message: "OTP Sent & Data Saved" });
+        res.json({ success: true, message: "OTP Sent & Data Saved" });
 
-  } catch (error) {
-    console.error("❌ Error:", error.response?.data || error.message);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
+    } catch (error) {
+        console.error("❌ Error:", error.response ? error.response.data : error.message);
+        res.status(500).json({ success: false, message: "Delivery failed" });
+    }
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on port ${PORT}`);
 });
