@@ -30,7 +30,7 @@ const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 const NEODOVE_API_KEY = process.env.NEODOVE_API_KEY;
 
 /* ⚠️ UPDATED: Matches the Template Name in your screenshot */
-const NEODOVE_TEMPLATE_NAME = "otpweb5"; 
+const NEODOVE_TEMPLATE_NAME = "OTP5"; 
 
 /* GOOGLE SHEET WEB APP URL */
 const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
