@@ -9,12 +9,12 @@ const app = express();
 /* =========================
    1. MIDDLEWARE
 ========================= */
-app.use(express.json()); // Parses incoming JSON requests
-app.use(express.urlencoded({ extended: true })); // Parses form-submitted data
-app.use(cors()); // Allows your website to communicate with this server
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors());
 
 /* =========================
-   2. HEALTH CHECK (FIX FOR CANNOT GET /)
+   2. HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
   res.send(`
@@ -26,9 +26,6 @@ app.get("/", (req, res) => {
   `);
 });
 
-// If you have an 'index.html' file in a 'public' folder, uncomment below
-// app.use(express.static(path.join(__dirname, 'public')));
-
 /* =========================
    3. NEODOVE CONFIGURATION
 ========================= */
@@ -37,15 +34,18 @@ const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 const API_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
 
+/* ✅ GOOGLE SHEET WEB APP URL */
+const GOOGLE_SHEET_URL =
+  "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
+
 /* =========================
    4. OTP SENDING ROUTE
 ========================= */
 app.post("/send-otp", async (req, res) => {
   console.log("Request received for:", req.body.phoneNumber);
 
-  const { phoneNumber, userName, otpCode } = req.body;
+  const { phoneNumber, userName, otpCode, name, board, city, course } = req.body;
 
-  // Validate incoming data
   if (!phoneNumber || !otpCode) {
     return res.status(400).json({
       success: false,
@@ -69,7 +69,7 @@ app.post("/send-otp", async (req, res) => {
         parameters: [
           {
             type: "text",
-            text: String(otpCode) // Dynamic OTP
+            text: String(otpCode)
           }
         ]
       }
@@ -81,31 +81,40 @@ app.post("/send-otp", async (req, res) => {
   };
 
   try {
-    const response = await axios.post(API_URL, payload, {
+    /* ---------- SEND OTP ---------- */
+    await axios.post(API_URL, payload, {
       headers: { "Content-Type": "application/json" }
+    });
+
+    /* ---------- SAVE TO GOOGLE SHEET (NEW) ---------- */
+    await axios.post(GOOGLE_SHEET_URL, {
+      name: name || "",
+      board: board || "",
+      city: city || "",
+      course: course || "",
+      phone: phoneNumber
     });
 
     res.json({
       success: true,
-      message: "OTP sent successfully via WhatsApp",
-      neodove_response: response.data
+      message: "OTP sent & data saved to Google Sheet"
     });
 
   } catch (error) {
     console.error(
-      "NeoDove API Error:",
+      "Error:",
       error.response ? error.response.data : error.message
     );
 
     res.status(500).json({
       success: false,
-      message: "NeoDove API failed to send message."
+      message: "OTP or Google Sheet failed"
     });
   }
 });
 
 /* =========================
-   5. RENDER PORT BINDING
+   5. PORT
 ========================= */
 const PORT = process.env.PORT || 3000;
 
