@@ -1,90 +1,114 @@
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-require('dotenv').config();
+const express = require("express");
+const axios = require("axios");
+const cors = require("cors");
+const path = require("path");
+require("dotenv").config();
 
 const app = express();
 
-// --- 1. MIDDLEWARE ---
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+/* =========================
+   1. MIDDLEWARE
+========================= */
+app.use(express.json()); // Parses incoming JSON requests
+app.use(express.urlencoded({ extended: true })); // Parses form-submitted data
+app.use(cors()); // Allows your website to communicate with this server
 
-// --- 2. HOME PAGE (Health Check) ---
-app.get('/', (req, res) => {
-    res.send('<h1 style="font-family: Arial;">✅ OTP Backend is Live</h1>');
+/* =========================
+   2. HEALTH CHECK (FIX FOR CANNOT GET /)
+========================= */
+app.get("/", (req, res) => {
+  res.send(`
+    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+      <h1 style="color: #28a745;">✅ OTP Backend is Live</h1>
+      <p>Your server is running correctly on Render.</p>
+      <p>Ready to receive requests at <code>/send-otp</code></p>
+    </div>
+  `);
 });
 
-// --- 3. CONFIGURATION ---
-const API_URL = 'https://backend.api-wa.co/campaign/neodove/api/v2';
+// If you have an 'index.html' file in a 'public' folder, uncomment below
+// app.use(express.static(path.join(__dirname, 'public')));
 
-/* 🔐 SECURITY: Use process.env.NEODOVE_API_KEY in Render settings 
-   for your API key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-*/
-const API_KEY = process.env.NEODOVE_API_KEY; 
+/* =========================
+   3. NEODOVE CONFIGURATION
+========================= */
+const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 
-const CAMPAIGN_NAME = "OTP5"; // Verified campaign name
-const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
+const API_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
 
-// --- 4. SEND OTP + SAVE DATA ---
-app.post('/send-otp', async (req, res) => {
-    const { phoneNumber, name, board, city, course, otpCode } = req.body;
+/* =========================
+   4. OTP SENDING ROUTE
+========================= */
+app.post("/send-otp", async (req, res) => {
+  console.log("Request received for:", req.body.phoneNumber);
 
-    // Basic Validation
-    if (!phoneNumber || !otpCode) {
-        return res.status(400).json({ success: false, message: "Missing phone or OTP" });
-    }
+  const { phoneNumber, userName, otpCode } = req.body;
 
-    // Strict Formatting: Ensure "91" prefix for WhatsApp
-    let formattedPhone = phoneNumber.replace(/\D/g, "");
-    if (formattedPhone.length === 10) {
-        formattedPhone = "91" + formattedPhone;
-    }
+  // Validate incoming data
+  if (!phoneNumber || !otpCode) {
+    return res.status(400).json({
+      success: false,
+      message: "Required fields (phoneNumber, otpCode) are missing."
+    });
+  }
 
-    // NeoDove Payload for otpweb5 template
-    const neodovePayload = {
-        apiKey: API_KEY,
-        campaignName: CAMPAIGN_NAME,
-        destination: formattedPhone,
-        userName: name || "Student",
-        templateParams: [ 
-            String(otpCode) // Fills {{1}} in "____ is your verification code"
-        ],
-        source: "website-otp-form"
-    };
+  const payload = {
+    apiKey: API_KEY,
+    campaignName: "OTP5",
+    destination: String(phoneNumber),
+    userName: String(userName || "Valued User"),
+    templateParams: [String(otpCode)],
+    source: "website-otp-form",
+    media: {},
+    buttons: [
+      {
+        type: "button",
+        sub_type: "url",
+        index: 0,
+        parameters: [
+          {
+            type: "text",
+            text: String(otpCode) // Dynamic OTP
+          }
+        ]
+      }
+    ],
+    carouselCards: [],
+    location: {},
+    attributes: {},
+    paramsFallbackValue: { FirstName: "user" }
+  };
 
-    try {
-        // Step A: Send WhatsApp Message
-        const waResponse = await axios.post(API_URL, neodovePayload);
-        console.log("✅ WhatsApp API Status:", waResponse.data);
+  try {
+    const response = await axios.post(API_URL, payload, {
+      headers: { "Content-Type": "application/json" }
+    });
 
-        // Step B: Save Data to Google Sheets
-        await axios.post(GOOGLE_SHEET_URL, {
-            name: name || "",
-            board: board || "",
-            city: city || "",
-            course: course || "",
-            phone: formattedPhone
-        });
-        console.log("📊 Lead saved to Google Sheets");
+    res.json({
+      success: true,
+      message: "OTP sent successfully via WhatsApp",
+      neodove_response: response.data
+    });
 
-        res.json({ 
-            success: true, 
-            message: "OTP Sent & Data Saved",
-            wa_data: waResponse.data 
-        });
+  } catch (error) {
+    console.error(
+      "NeoDove API Error:",
+      error.response ? error.response.data : error.message
+    );
 
-    } catch (error) {
-        console.error("❌ ERROR:", error.response ? error.response.data : error.message);
-        res.status(500).json({ 
-            success: false, 
-            message: "Delivery failed. Check credits or template status." 
-        });
-    }
+    res.status(500).json({
+      success: false,
+      message: "NeoDove API failed to send message."
+    });
+  }
 });
 
-// --- 5. SERVER START ---
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server is running on port ${PORT}`);
+/* =========================
+   5. RENDER PORT BINDING
+========================= */
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on port ${PORT}`);
 });
