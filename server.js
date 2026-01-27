@@ -13,27 +13,27 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 /* =========================
-   2. HEALTH CHECK (ROOT)
+   2. HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
   res.send(`
     <h2 style="font-family:Arial">✅ OTP Backend is Live</h2>
-    <p>POST endpoint available at <code>/send-otp</code></p>
+    <p>POST endpoint: <code>/send-otp</code></p>
   `);
 });
 
 /* =========================
-   3. CONFIG
+   3. CONFIGURATION
 ========================= */
 const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
-const NEODOVE_API_KEY = process.env.NEODOVE_API_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
+const NEODOVE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";   // 🔑 from Render
 const NEODOVE_CAMPAIGN_NAME = "OTP5";
 
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
 
 /* =========================
-   4. SEND OTP + SAVE TO SHEET
+   4. SEND OTP + SAVE DATA
 ========================= */
 app.post("/send-otp", async (req, res) => {
   try {
@@ -46,6 +46,7 @@ app.post("/send-otp", async (req, res) => {
       otpCode
     } = req.body;
 
+    // Basic validation
     if (!phoneNumber || !otpCode) {
       return res.status(400).json({
         success: false,
@@ -55,12 +56,12 @@ app.post("/send-otp", async (req, res) => {
 
     console.log("📩 OTP request for:", phoneNumber);
 
-    /* ----------- NeoDove OTP ----------- */
+    /* ---------- NeoDove OTP ---------- */
     const neodovePayload = {
       apiKey: NEODOVE_API_KEY,
       campaignName: NEODOVE_CAMPAIGN_NAME,
       destination: String(phoneNumber),
-      templateParams: [String(otpCode)],
+      templateParams: [ String(otpCode) ],
       source: "website-otp-form"
     };
 
@@ -70,7 +71,7 @@ app.post("/send-otp", async (req, res) => {
 
     console.log("✅ OTP sent via NeoDove");
 
-    /* ----------- Google Sheet Insert ----------- */
+    /* ---------- Google Sheet Insert ---------- */
     await axios.post(GOOGLE_SHEET_URL, {
       name: name || "",
       board: board || "",
@@ -83,7 +84,7 @@ app.post("/send-otp", async (req, res) => {
 
     return res.json({
       success: true,
-      message: "OTP sent and data saved"
+      message: "OTP sent & data saved"
     });
 
   } catch (error) {
@@ -106,3 +107,4 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
