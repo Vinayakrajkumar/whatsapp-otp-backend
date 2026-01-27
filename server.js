@@ -26,10 +26,10 @@ app.get("/", (req, res) => {
 ========================= */
 const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 
-/* 🔴 YOUR WHATSAPP (NEODOVE) API KEY */
-const NEODOVE_API_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
+/* 🔐 API KEY FROM RENDER ENV (SECURE) */
+const NEODOVE_API_KEY = process.env.NEODOVE_API_KEY;
 
+/* ⚠️ MUST MATCH NEODOVE DASHBOARD EXACTLY */
 const NEODOVE_CAMPAIGN_NAME = "OTP5";
 
 /* GOOGLE SHEET WEB APP URL */
@@ -50,6 +50,7 @@ app.post("/send-otp", async (req, res) => {
       otpCode
     } = req.body;
 
+    /* ---------- VALIDATION ---------- */
     if (!phoneNumber || !otpCode) {
       return res.status(400).json({
         success: false,
@@ -57,7 +58,14 @@ app.post("/send-otp", async (req, res) => {
       });
     }
 
-    /* ✅ FORMAT PHONE NUMBER (INDIA) */
+    if (!NEODOVE_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        message: "NeoDove API key missing in environment variables"
+      });
+    }
+
+    /* ---------- FORMAT PHONE NUMBER (INDIA) ---------- */
     let formattedNumber = phoneNumber.replace(/\D/g, "");
 
     if (formattedNumber.length === 10) {
@@ -78,8 +86,11 @@ app.post("/send-otp", async (req, res) => {
       apiKey: NEODOVE_API_KEY,
       campaignName: NEODOVE_CAMPAIGN_NAME,
       destination: formattedNumber,
-      userName: "Student",          // REQUIRED BY NEODOVE
-      templateParams: [String(otpCode)],
+      userName: "Student",
+      templateParams: [
+        "Student",          // {{1}}
+        String(otpCode)     // {{2}}
+      ],
       source: "website-otp-form"
     };
 
