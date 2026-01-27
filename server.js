@@ -30,7 +30,7 @@ const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 // ⚠️ Recommended: keep this in Render ENV, but hardcoded also works
 const NEODOVE_API_KEY =
   process.env.NEODOVE_API_KEY ||
-  "PASTE_YOUR_NEODOVE_API_KEY_HERE";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
 
 const NEODOVE_CAMPAIGN_NAME = "OTP5";
 
