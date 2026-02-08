@@ -3,7 +3,7 @@
 const otpStore = {};
 const registeredUsers = {}; // New: Store verified numbers here
 
-/* =========================
+/* ========================= 
    SEND OTP (Updated)
 ========================= */
 app.post("/send-otp", async (req, res) => {
