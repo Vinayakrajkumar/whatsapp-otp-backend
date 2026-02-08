@@ -14,7 +14,6 @@ app.use(cors());
 
 /* =========================
    2. IN-MEMORY STORE
-   (for one-OTP-per-number)
 ========================= */
 const otpStore = {};
 /*
@@ -80,18 +79,20 @@ app.post("/send-otp", async (req, res) => {
   const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
 
   const payload = {
-    apiKey: API_KEY,
-    campaignName: "OTP5",
-    destination: String(phoneNumber),
+    campaignName: "OTP5",            // ✅ must match Neodove dashboard
+    destination: String(phoneNumber),// ✅ format: 91XXXXXXXXXX
     userName: "Student",
     templateParams: [otpCode],
     source: "website-otp-form"
   };
 
   try {
-    /* ---------- SEND OTP ---------- */
+    /* ---------- SEND OTP (FIXED AUTH HEADER) ---------- */
     await axios.post(API_URL, payload, {
-      headers: { "Content-Type": "application/json" }
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${API_KEY}`
+      }
     });
 
     /* ---------- SAVE OTP STATE ---------- */
