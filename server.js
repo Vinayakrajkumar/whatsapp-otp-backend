@@ -8,7 +8,7 @@ app.use(express.json());
 app.use(cors());
 
 const otpStore = {};
-const registeredUsers = {}; // Memory storage for verified users
+const registeredUsers = {}; // Memory storage for verified users 
 
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 const API_KEY = process.env.API_KEY;
