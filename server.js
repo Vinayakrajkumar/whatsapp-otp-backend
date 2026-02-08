@@ -12,12 +12,12 @@ app.use(express.json());
 app.use(cors());
 
 /* =========================
-   NEODOVE CONFIG
+   CONFIG
 ========================= */
 const API_URL =
   "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
-const API_KEY = process.env.NEODOVE_API_KEY; // ✅ FIXED
+const API_KEY = process.env.NEODOVE_API_KEY;
 
 /* =========================
    IN-MEMORY STORES
@@ -39,13 +39,14 @@ app.post("/send-otp", async (req, res) => {
   const { phoneNumber } = req.body;
 
   if (!phoneNumber) {
-    return res.status(400).json({ success: false });
+    return res.status(400).json({ success: false, message: "Phone required" });
   }
 
   if (registeredUsers[phoneNumber]) {
     return res.status(409).json({
       success: false,
-      message: "The number you entered is already registered. We will contact you soon."
+      message:
+        "The number you entered is already registered. We will contact you soon."
     });
   }
 
@@ -69,11 +70,13 @@ app.post("/send-otp", async (req, res) => {
     });
 
     console.log("Neodove response:", response.data);
-
     res.json({ success: true });
 
   } catch (err) {
-    console.error("Neodove Error:", err.response?.data || err.message);
+    console.error(
+      "Neodove Error:",
+      err.response?.data || err.message
+    );
     res.status(500).json({ success: false });
   }
 });
