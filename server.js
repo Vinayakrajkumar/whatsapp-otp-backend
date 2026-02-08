@@ -13,158 +13,111 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 /* =========================
-   2. IN-MEMORY STORE
-========================= */
-const otpStore = {};
-/*
-otpStore[phoneNumber] = {
-  otp: "1234",
-  status: "OTP_SENT" | "REGISTERED"
-}
-*/
-
-/* =========================
-   3. HEALTH CHECK
+   2. HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
-  res.send("✅ OTP Backend is Live");
+  res.send(`
+    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+      <h1 style="color: #28a745;">✅ OTP Backend is Live</h1>
+      <p>Your server is running correctly on Render.</p>
+      <p>Ready to receive requests at <code>/send-otp</code></p>
+    </div>
+  `);
 });
 
 /* =========================
-   4. NEODOVE CONFIG
+   3. NEODOVE CONFIGURATION
 ========================= */
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
-const API_KEY = process.env.API_KEY;
+const API_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
 
 /* =========================
-   5. GOOGLE SHEET URL
+   4. GOOGLE SHEET URL
 ========================= */
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
 
 /* =========================
-   6. SEND OTP (ONLY ONCE)
+   5. OTP SENDING ROUTE
 ========================= */
 app.post("/send-otp", async (req, res) => {
-  const { phoneNumber, name, board, city, course } = req.body;
+  console.log("Request received for:", req.body.phoneNumber);
 
-  if (!phoneNumber) {
+  const { phoneNumber, userName, otpCode, name, board, city, course } = req.body;
+
+  if (!phoneNumber || !otpCode) {
     return res.status(400).json({
       success: false,
-      message: "Phone number is required"
+      message: "Required fields (phoneNumber, otpCode) are missing."
     });
   }
-
-  /* ---------- BLOCK IF ALREADY REGISTERED ---------- */
-  if (otpStore[phoneNumber]?.status === "REGISTERED") {
-    return res.json({
-      success: false,
-      status: "REGISTERED",
-      message:
-        "The number you entered is already registered. We will contact you soon."
-    });
-  }
-
-  /* ---------- BLOCK MULTIPLE OTP ---------- */
-  if (otpStore[phoneNumber]?.status === "OTP_SENT") {
-    return res.json({
-      success: false,
-      status: "REGISTERED",
-      message:
-        "The number you entered is already registered. We will contact you soon."
-    });
-  }
-
-  /* ---------- GENERATE OTP ---------- */
-  const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
 
   const payload = {
-    campaignName: "OTP5",            // ✅ must match Neodove dashboard
-    destination: String(phoneNumber),// ✅ format: 91XXXXXXXXXX
-    userName: "Student",
-    templateParams: [otpCode],
-    source: "website-otp-form"
+    apiKey: API_KEY,
+    campaignName: "OTP5",
+    destination: String(phoneNumber),
+    userName: String(userName || "Valued User"),
+    templateParams: [String(otpCode)],
+    source: "website-otp-form",
+    media: {},
+    buttons: [
+      {
+        type: "button",
+        sub_type: "url",
+        index: 0,
+        parameters: [
+          {
+            type: "text",
+            text: String(otpCode)
+          }
+        ]
+      }
+    ],
+    carouselCards: [],
+    location: {},
+    attributes: {},
+    paramsFallbackValue: { FirstName: "user" }
   };
 
   try {
-    /* ---------- SEND OTP (FIXED AUTH HEADER) ---------- */
+    /* ---------- SEND OTP ---------- */
     await axios.post(API_URL, payload, {
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`
-      }
+      headers: { "Content-Type": "application/json" }
     });
 
-    /* ---------- SAVE OTP STATE ---------- */
-    otpStore[phoneNumber] = {
-      otp: otpCode,
-      status: "OTP_SENT"
-    };
-
-    /* ---------- SAVE TO GOOGLE SHEET (ONCE) ---------- */
+    /* ---------- SAVE TO GOOGLE SHEET ---------- */
     await axios.post(GOOGLE_SHEET_URL, {
       name: name || "",
       board: board || "",
       city: city || "",
       course: course || "",
-      phone: phoneNumber,
-      formName: "VITEEE ONLINE FORM"
+      phone: phoneNumber
     });
 
     res.json({
       success: true,
-      status: "OTP_SENT",
-      message: "OTP sent successfully"
+      message: "OTP sent & data saved to Google Sheet"
     });
 
   } catch (error) {
     console.error(
-      "OTP ERROR:",
+      "Error:",
       error.response ? error.response.data : error.message
     );
 
     res.status(500).json({
       success: false,
-      message: "OTP sending failed"
+      message: "OTP or Google Sheet failed"
     });
   }
 });
 
 /* =========================
-   7. VERIFY OTP
-========================= */
-app.post("/verify-otp", (req, res) => {
-  const { phoneNumber, otp } = req.body;
-
-  if (!phoneNumber || !otp) {
-    return res.json({
-      success: false,
-      message: "Invalid request"
-    });
-  }
-
-  const record = otpStore[phoneNumber];
-
-  if (!record || record.otp !== otp) {
-    return res.json({
-      success: false,
-      message: "Invalid OTP"
-    });
-  }
-
-  /* ---------- MARK AS REGISTERED ---------- */
-  otpStore[phoneNumber].status = "REGISTERED";
-
-  res.json({
-    success: true,
-    message: "OTP verified successfully"
-  });
-});
-
-/* =========================
-   8. PORT
+   6. PORT
 ========================= */
 const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
