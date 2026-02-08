@@ -1,58 +1,35 @@
-// ... existing imports ...
+const express = require("express");
+const axios = require("axios");
+const cors = require("cors");
+require("dotenv").config();
 
+// 1. FIRST: Create the app instance
+const app = express();
+
+// 2. SECOND: Apply middleware
+app.use(express.json());
+app.use(cors());
+
+// 3. THIRD: Define your storage objects
 const otpStore = {};
-const registeredUsers = {}; // New: Store verified numbers here
+const registeredUsers = {}; // The new storage for verified users
 
-/* ========================= 
-   SEND OTP (Updated)
-========================= */
+// 4. FOURTH: Define your routes (The "Health Check" must come AFTER app is defined)
+app.get("/", (req, res) => {
+  res.send("✅ OTP Backend is Live");
+});
+
+const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
+const API_KEY = process.env.API_KEY;
+
 app.post("/send-otp", async (req, res) => {
-  const { phoneNumber } = req.body;
-
-  if (!phoneNumber) {
-    return res.status(400).json({ success: false, message: "Phone required" });
-  }
-
-  // CHECK IF ALREADY REGISTERED
-  if (registeredUsers[phoneNumber]) {
-    return res.status(409).json({ 
-      success: false, 
-      alreadyRegistered: true, 
-      message: "Already registered" 
-    });
-  }
-
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  otpStore[phoneNumber] = otp;
-
-  // ... rest of your Neodove axios call ...
-  try {
-    await axios.post(API_URL, payload, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${API_KEY}`
-      }
-    });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false });
-  }
+  // ... your send-otp logic ...
 });
 
-/* =========================
-   VERIFY OTP (Updated)
-========================= */
 app.post("/verify-otp", (req, res) => {
-  const { phoneNumber, otp } = req.body;
-
-  if (otpStore[phoneNumber] === otp) {
-    delete otpStore[phoneNumber];
-    
-    // SAVE TO REGISTERED USERS
-    registeredUsers[phoneNumber] = true; 
-    
-    res.json({ success: true });
-  } else {
-    res.json({ success: false });
-  }
+  // ... your verify-otp logic ...
 });
+
+// 5. FIFTH: Start the server
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`🚀 OTP server running on port ${PORT}`));
