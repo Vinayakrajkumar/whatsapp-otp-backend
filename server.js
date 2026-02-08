@@ -56,6 +56,7 @@ app.post("/send-otp", async (req, res) => {
   const payload = {
     apiKey: API_KEY,
     campaignName: "OTP5",
+    templateName: "otpweb5",          // ✅ ONLY ADDITION
     destination: String(phoneNumber),
     userName: String(userName || "Valued User"),
     templateParams: [String(otpCode)],
