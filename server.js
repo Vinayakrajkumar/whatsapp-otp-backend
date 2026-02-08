@@ -13,19 +13,16 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 /* =========================
-   2. IN-MEMORY OTP STORE
-   (replace with DB later)
+   2. IN-MEMORY STORE
+   (for one-OTP-per-number)
 ========================= */
-const otpStore = {}; 
+const otpStore = {};
 /*
-  Structure:
-  otpStore[phoneNumber] = {
-    otpSentAt: timestamp,
-    status: "PENDING" | "SUBMITTED"
-  }
+otpStore[phoneNumber] = {
+  otp: "1234",
+  status: "OTP_SENT" | "REGISTERED"
+}
 */
-
-const OTP_COOLDOWN = 60 * 1000; // 1 minute
 
 /* =========================
    3. HEALTH CHECK
@@ -47,23 +44,20 @@ const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
 
 /* =========================
-   6. SEND OTP ROUTE
+   6. SEND OTP (ONLY ONCE)
 ========================= */
 app.post("/send-otp", async (req, res) => {
-  const { phoneNumber, otpCode, name, board, city, course } = req.body;
+  const { phoneNumber, name, board, city, course } = req.body;
 
-  if (!phoneNumber || !otpCode) {
+  if (!phoneNumber) {
     return res.status(400).json({
       success: false,
-      message: "Phone number and OTP are required"
+      message: "Phone number is required"
     });
   }
 
-  const now = Date.now();
-  const record = otpStore[phoneNumber];
-
-  /* ---------- CASE 1: ALREADY REGISTERED ---------- */
-  if (record && record.status === "SUBMITTED") {
+  /* ---------- BLOCK IF ALREADY REGISTERED ---------- */
+  if (otpStore[phoneNumber]?.status === "REGISTERED") {
     return res.json({
       success: false,
       status: "REGISTERED",
@@ -72,46 +66,49 @@ app.post("/send-otp", async (req, res) => {
     });
   }
 
-  /* ---------- CASE 2: WAIT FOR 1 MINUTE ---------- */
-  if (record && now - record.otpSentAt < OTP_COOLDOWN) {
+  /* ---------- BLOCK MULTIPLE OTP ---------- */
+  if (otpStore[phoneNumber]?.status === "OTP_SENT") {
     return res.json({
       success: false,
-      status: "WAIT",
-      message: "Please wait for 1 minute before requesting OTP again."
+      status: "REGISTERED",
+      message:
+        "The number you entered is already registered. We will contact you soon."
     });
   }
 
-  /* ---------- SEND OTP ---------- */
+  /* ---------- GENERATE OTP ---------- */
+  const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+
   const payload = {
     apiKey: API_KEY,
     campaignName: "OTP5",
     destination: String(phoneNumber),
     userName: "Student",
-    templateParams: [String(otpCode)],
+    templateParams: [otpCode],
     source: "website-otp-form"
   };
 
   try {
+    /* ---------- SEND OTP ---------- */
     await axios.post(API_URL, payload, {
       headers: { "Content-Type": "application/json" }
     });
 
-    /* ---------- SAVE / UPDATE OTP RECORD ---------- */
+    /* ---------- SAVE OTP STATE ---------- */
     otpStore[phoneNumber] = {
-      otpSentAt: now,
-      status: "PENDING"
+      otp: otpCode,
+      status: "OTP_SENT"
     };
 
-    /* ---------- SAVE TO GOOGLE SHEET (ONLY ONCE) ---------- */
-    if (!record) {
-      await axios.post(GOOGLE_SHEET_URL, {
-        name: name || "",
-        board: board || "",
-        city: city || "",
-        course: course || "",
-        phone: phoneNumber
-      });
-    }
+    /* ---------- SAVE TO GOOGLE SHEET (ONCE) ---------- */
+    await axios.post(GOOGLE_SHEET_URL, {
+      name: name || "",
+      board: board || "",
+      city: city || "",
+      course: course || "",
+      phone: phoneNumber,
+      formName: "VITEEE ONLINE FORM"
+    });
 
     res.json({
       success: true,
@@ -120,7 +117,11 @@ app.post("/send-otp", async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error.message);
+    console.error(
+      "OTP ERROR:",
+      error.response ? error.response.data : error.message
+    );
+
     res.status(500).json({
       success: false,
       message: "OTP sending failed"
@@ -129,19 +130,29 @@ app.post("/send-otp", async (req, res) => {
 });
 
 /* =========================
-   7. VERIFY OTP ROUTE
+   7. VERIFY OTP
 ========================= */
 app.post("/verify-otp", (req, res) => {
-  const { phoneNumber } = req.body;
+  const { phoneNumber, otp } = req.body;
 
-  if (!otpStore[phoneNumber]) {
+  if (!phoneNumber || !otp) {
     return res.json({
       success: false,
-      message: "Invalid session"
+      message: "Invalid request"
     });
   }
 
-  otpStore[phoneNumber].status = "SUBMITTED";
+  const record = otpStore[phoneNumber];
+
+  if (!record || record.otp !== otp) {
+    return res.json({
+      success: false,
+      message: "Invalid OTP"
+    });
+  }
+
+  /* ---------- MARK AS REGISTERED ---------- */
+  otpStore[phoneNumber].status = "REGISTERED";
 
   res.json({
     success: true,
