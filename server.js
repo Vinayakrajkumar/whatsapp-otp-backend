@@ -9,7 +9,7 @@ app.use(cors());
 
 /* =========================
    HEALTH CHECK
-========================= */
+========================= */ 
 app.get("/", (req, res) => {
   res.send("✅ OTP Backend is Live");
 });
