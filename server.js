@@ -5,102 +5,61 @@ require("dotenv").config();
 
 const app = express();
 
-/* =========================
-   MIDDLEWARE
-========================= */
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-/* =========================
-   CONFIG
-========================= */
-const API_URL =
-  "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
-
-const API_KEY = process.env.NEODOVE_API_KEY;
-
-/* =========================
-   IN-MEMORY STORES
-========================= */
-const otpStore = {};
-const registeredUsers = {};
-
-/* =========================
-   HEALTH CHECK
-========================= */
 app.get("/", (req, res) => {
-  res.send("✅ OTP Backend is Live");
+  res.send(`
+    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+      <h1 style="color: #28a745;">✅ OTP Backend is Live</h1>
+      <p>Your server is running correctly on Render.</p>
+      <p>Ready to receive requests at <code>/send-otp</code></p>
+    </div>
+  `);
 });
 
-/* =========================
-   SEND OTP
-========================= */
+const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
+const API_KEY = "YOUR_API_KEY_HERE";
+
+const GOOGLE_SHEET_URL =
+  "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
+
 app.post("/send-otp", async (req, res) => {
-  const { phoneNumber } = req.body;
+  const { phoneNumber, otpCode, name, board, city, course } = req.body;
 
-  if (!phoneNumber) {
-    return res.status(400).json({ success: false, message: "Phone required" });
+  if (!phoneNumber || !otpCode) {
+    return res.status(400).json({ success: false });
   }
-
-  if (registeredUsers[phoneNumber]) {
-    return res.status(409).json({
-      success: false,
-      message:
-        "The number you entered is already registered. We will contact you soon."
-    });
-  }
-
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
-  otpStore[phoneNumber] = otp;
 
   const payload = {
+    apiKey: API_KEY,
     campaignName: "OTP5",
-    templateName: "otpweb5",
     destination: phoneNumber,
-    templateParams: [otp],
+    templateParams: [otpCode],
     source: "website-otp-form"
   };
 
   try {
-    const response = await axios.post(API_URL, payload, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${API_KEY}`
-      }
+    await axios.post(API_URL, payload, {
+      headers: { "Content-Type": "application/json" }
     });
 
-    console.log("Neodove response:", response.data);
-    res.json({ success: true });
+    await axios.post(GOOGLE_SHEET_URL, {
+      name,
+      board,
+      city,
+      course,
+      phone: phoneNumber
+    });
 
+    res.json({ success: true });
   } catch (err) {
-    console.error(
-      "Neodove Error:",
-      err.response?.data || err.message
-    );
     res.status(500).json({ success: false });
   }
 });
 
-/* =========================
-   VERIFY OTP
-========================= */
-app.post("/verify-otp", (req, res) => {
-  const { phoneNumber, otp } = req.body;
-
-  if (otpStore[phoneNumber] !== otp) {
-    return res.json({ success: false });
-  }
-
-  delete otpStore[phoneNumber];
-  registeredUsers[phoneNumber] = true;
-
-  res.json({ success: true });
-});
-
-/* =========================
-   START SERVER
-========================= */
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
