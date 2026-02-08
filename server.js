@@ -1,7 +1,6 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-const path = require("path");
 require("dotenv").config();
 
 const app = express();
@@ -14,110 +13,146 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 /* =========================
-   2. HEALTH CHECK
+   2. IN-MEMORY OTP STORE
+   (replace with DB later)
+========================= */
+const otpStore = {}; 
+/*
+  Structure:
+  otpStore[phoneNumber] = {
+    otpSentAt: timestamp,
+    status: "PENDING" | "SUBMITTED"
+  }
+*/
+
+const OTP_COOLDOWN = 60 * 1000; // 1 minute
+
+/* =========================
+   3. HEALTH CHECK
 ========================= */
 app.get("/", (req, res) => {
-  res.send(`
-    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
-      <h1 style="color: #28a745;">✅ OTP Backend is Live</h1>
-      <p>Your server is running correctly on Render.</p>
-      <p>Ready to receive requests at <code>/send-otp</code></p>
-    </div>
-  `);
+  res.send("✅ OTP Backend is Live");
 });
 
 /* =========================
-   3. NEODOVE CONFIGURATION
+   4. NEODOVE CONFIG
 ========================= */
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
+const API_KEY = process.env.API_KEY;
 
-const API_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
-
-/* ✅ GOOGLE SHEET WEB APP URL */
+/* =========================
+   5. GOOGLE SHEET URL
+========================= */
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
 
 /* =========================
-   4. OTP SENDING ROUTE
+   6. SEND OTP ROUTE
 ========================= */
 app.post("/send-otp", async (req, res) => {
-  console.log("Request received for:", req.body.phoneNumber);
-
-  const { phoneNumber, userName, otpCode, name, board, city, course } = req.body;
+  const { phoneNumber, otpCode, name, board, city, course } = req.body;
 
   if (!phoneNumber || !otpCode) {
     return res.status(400).json({
       success: false,
-      message: "Required fields (phoneNumber, otpCode) are missing."
+      message: "Phone number and OTP are required"
     });
   }
 
+  const now = Date.now();
+  const record = otpStore[phoneNumber];
+
+  /* ---------- CASE 1: ALREADY REGISTERED ---------- */
+  if (record && record.status === "SUBMITTED") {
+    return res.json({
+      success: false,
+      status: "REGISTERED",
+      message:
+        "The number you entered is already registered. We will contact you soon."
+    });
+  }
+
+  /* ---------- CASE 2: WAIT FOR 1 MINUTE ---------- */
+  if (record && now - record.otpSentAt < OTP_COOLDOWN) {
+    return res.json({
+      success: false,
+      status: "WAIT",
+      message: "Please wait for 1 minute before requesting OTP again."
+    });
+  }
+
+  /* ---------- SEND OTP ---------- */
   const payload = {
     apiKey: API_KEY,
     campaignName: "OTP5",
     destination: String(phoneNumber),
-    userName: String(userName || "Valued User"),
+    userName: "Student",
     templateParams: [String(otpCode)],
-    source: "website-otp-form",
-    media: {},
-    buttons: [
-      {
-        type: "button",
-        sub_type: "url",
-        index: 0,
-        parameters: [
-          {
-            type: "text",
-            text: String(otpCode)
-          }
-        ]
-      }
-    ],
-    carouselCards: [],
-    location: {},
-    attributes: {},
-    paramsFallbackValue: { FirstName: "user" }
+    source: "website-otp-form"
   };
 
   try {
-    /* ---------- SEND OTP ---------- */
     await axios.post(API_URL, payload, {
       headers: { "Content-Type": "application/json" }
     });
 
-    /* ---------- SAVE TO GOOGLE SHEET (NEW) ---------- */
-    await axios.post(GOOGLE_SHEET_URL, {
-      name: name || "",
-      board: board || "",
-      city: city || "",
-      course: course || "",
-      phone: phoneNumber
-    });
+    /* ---------- SAVE / UPDATE OTP RECORD ---------- */
+    otpStore[phoneNumber] = {
+      otpSentAt: now,
+      status: "PENDING"
+    };
+
+    /* ---------- SAVE TO GOOGLE SHEET (ONLY ONCE) ---------- */
+    if (!record) {
+      await axios.post(GOOGLE_SHEET_URL, {
+        name: name || "",
+        board: board || "",
+        city: city || "",
+        course: course || "",
+        phone: phoneNumber
+      });
+    }
 
     res.json({
       success: true,
-      message: "OTP sent & data saved to Google Sheet"
+      status: "OTP_SENT",
+      message: "OTP sent successfully"
     });
 
   } catch (error) {
-    console.error(
-      "Error:",
-      error.response ? error.response.data : error.message
-    );
-
+    console.error(error.message);
     res.status(500).json({
       success: false,
-      message: "OTP or Google Sheet failed"
+      message: "OTP sending failed"
     });
   }
 });
 
 /* =========================
-   5. PORT
+   7. VERIFY OTP ROUTE
+========================= */
+app.post("/verify-otp", (req, res) => {
+  const { phoneNumber } = req.body;
+
+  if (!otpStore[phoneNumber]) {
+    return res.json({
+      success: false,
+      message: "Invalid session"
+    });
+  }
+
+  otpStore[phoneNumber].status = "SUBMITTED";
+
+  res.json({
+    success: true,
+    message: "OTP verified successfully"
+  });
+});
+
+/* =========================
+   8. PORT
 ========================= */
 const PORT = process.env.PORT || 3000;
-
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
