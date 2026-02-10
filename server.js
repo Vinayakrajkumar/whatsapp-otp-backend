@@ -11,9 +11,9 @@ app.use(cors());
 
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 
-const API_KEY = process.env.NEODOVE_API_KEY;
-const CAMPAIGN_NAME = process.env.NEODOVE_CAMPAIGN_NAME;
-const SOURCE = process.env.NEODOVE_SOURCE;
+const API_KEY = String(process.env.NEODOVE_API_KEY || "");
+const CAMPAIGN_NAME = String(process.env.NEODOVE_CAMPAIGN_NAME || "");
+const SOURCE = String(process.env.NEODOVE_SOURCE || "");
 
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
@@ -21,8 +21,7 @@ const GOOGLE_SHEET_URL =
 /* ================== HELPERS ================== */
 
 function normalizePhone(phone) {
-  // Remove +, spaces, anything non-numeric
-  return phone.replace(/[^0-9]/g, "");
+  return String(phone).replace(/[^0-9]/g, "");
 }
 
 /* ================== OTP STORE ================== */
@@ -43,24 +42,32 @@ app.get("/", (req, res) => {
   res.send("✅ OTP Backend Running");
 });
 
-/* ---------- SEND OTP ---------- */
+/* ================== SEND OTP ================== */
+
 app.post("/send-otp", async (req, res) => {
   let { phoneNumber, name, board, city, course } = req.body;
 
   if (!phoneNumber || !name || !board || !city || !course) {
-    return res.status(400).json({ success: false, message: "Missing fields" });
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields"
+    });
   }
 
-  // ✅ Normalize phone number for Neodove
   phoneNumber = normalizePhone(phoneNumber);
 
-  // ✅ Generate OTP in backend
- const otp = String(Math.floor(1000 + Math.random() * 9000));
+  // Generate OTP STRICTLY as string
+  const otp = String(Math.floor(1000 + Math.random() * 9000));
 
   otpStore[phoneNumber] = {
     otp,
     expires: Date.now() + 5 * 60 * 1000, // 5 minutes
-    user: { name, board, city, course }
+    user: {
+      name: String(name),
+      board: String(board),
+      city: String(city),
+      course: String(course)
+    }
   };
 
   try {
@@ -70,10 +77,12 @@ app.post("/send-otp", async (req, res) => {
         apiKey: API_KEY,
         campaignName: CAMPAIGN_NAME,
 
-        // 🔥 THIS IS THE KEY FIX
-        userName: phoneNumber,
+        // 🔥 NEODOVE EXPECTS THIS KEY
+        destination: phoneNumber,
 
-        templateParams: [String(otp)],
+        // 🔥 NEODOVE EXPECTS THIS KEY
+        parameters: [otp],
+
         source: SOURCE
       },
       {
@@ -91,28 +100,40 @@ app.post("/send-otp", async (req, res) => {
   }
 });
 
-/* ---------- VERIFY OTP ---------- */
+/* ================== VERIFY OTP ================== */
+
 app.post("/verify-otp", async (req, res) => {
   let { phoneNumber, otp } = req.body;
 
   phoneNumber = normalizePhone(phoneNumber);
+  otp = String(otp || "");
+
   const record = otpStore[phoneNumber];
 
   if (!record) {
-    return res.status(400).json({ success: false, message: "OTP not found" });
+    return res.status(400).json({
+      success: false,
+      message: "OTP not found"
+    });
   }
 
   if (Date.now() > record.expires) {
     delete otpStore[phoneNumber];
-    return res.status(400).json({ success: false, message: "OTP expired" });
+    return res.status(400).json({
+      success: false,
+      message: "OTP expired"
+    });
   }
 
   if (record.otp !== otp) {
-    return res.status(400).json({ success: false, message: "Invalid OTP" });
+    return res.status(400).json({
+      success: false,
+      message: "Invalid OTP"
+    });
   }
 
   try {
-    // ✅ Save ONLY after OTP verification
+    // Save to Google Sheet ONLY after verification
     await axios.post(GOOGLE_SHEET_URL, {
       name: record.user.name,
       board: record.user.board,
@@ -124,7 +145,7 @@ app.post("/verify-otp", async (req, res) => {
     delete otpStore[phoneNumber];
     res.json({ success: true });
   } catch (err) {
-    console.error("❌ SHEET ERROR:", err.message);
+    console.error("❌ GOOGLE SHEET ERROR:", err.message);
     res.status(500).json({ success: false });
   }
 });
@@ -134,5 +155,5 @@ app.post("/verify-otp", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("🚀 Server running on port", PORT);
-  console.log("API KEY LOADED:", !!API_KEY);
+  console.log("API KEY LOADED:", API_KEY.length > 0);
 });
