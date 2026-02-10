@@ -47,11 +47,11 @@ app.post("/send-otp", async (req, res) => {
 
   try {
     /* 1️⃣ Send WhatsApp OTP */
-    await axios.post(
-  API_URL,
+   await axios.post(
+  "https://backend.api-wa.co/campaign/neodove/api/v2/message/send",
   {
     campaignName: "OTP5",
-    templateName: "otpweb5",
+    templateName: "otpweb5",   // required now
     destination: phoneNumber,
     templateParams: [otpCode],
     source: "website-otp-form"
@@ -59,7 +59,7 @@ app.post("/send-otp", async (req, res) => {
   {
     headers: {
       "Content-Type": "application/json",
-      "Authorization": API_KEY   // 🔴 CHANGE IS HERE
+      apiKey: API_KEY
     }
   }
 );
