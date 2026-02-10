@@ -31,12 +31,12 @@ app.post("/send-otp", async (req, res) => {
       campaignName: "OTP5",      // From your screenshot
       templateName: "otpweb5",   // From your screenshot
       destination: phoneNumber,
-      templateParams: [otpCode], // Array format required
+     templateParams: [otpCode] // Array format required
       source: "website-otp-form"
     }, {
       headers: { 
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}` // Standard Bearer format
+        "apiKey": API_KEY
       }
     });
 
