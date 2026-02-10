@@ -21,7 +21,7 @@ app.post('/send-otp', async (req, res) => {
         destination: phoneNumber, // Dynamic phone number
         userName: userName || "Valued User",
         templateParams: [
-            userName || "User" // Parameter 1: Name
+           OTPcode
         ],
         source: "new-landing-page form",
         media: {},
