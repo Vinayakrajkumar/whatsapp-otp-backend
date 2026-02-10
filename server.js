@@ -1,65 +1,66 @@
-const express = require("express");
-const axios = require("axios");
-const cors = require("cors");
-require("dotenv").config();
-
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
 const app = express();
 
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(cors());
+app.use(cors()); // Allows your frontend to talk to this backend
 
-app.get("/", (req, res) => {
-  res.send(`
-    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
-      <h1 style="color: #28a745;">✅ OTP Backend is Live</h1>
-      <p>Your server is running correctly on Render.</p>
-      <p>Ready to receive requests at <code>/send-otp</code></p>
-    </div>
-  `);
+// Your NeoDove Configuration
+const API_URL = 'https://backend.api-wa.co/campaign/neodove/api/v2';
+// Store this in an Environment Variable in production!
+const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw'; 
+
+app.post('/send-otp', async (req, res) => {
+    const { phoneNumber, userName, otpCode } = req.body;
+
+    // 1. Construct the payload exactly as the CURL request requires
+    const payload = {
+        apiKey: API_KEY,
+        campaignName: "Web_Quiz_OTP",
+        destination: phoneNumber, // Dynamic phone number
+        userName: userName || "Valued User",
+        templateParams: [
+            userName || "User" // Parameter 1: Name
+        ],
+        source: "new-landing-page form",
+        media: {},
+        buttons: [
+            {
+                type: "button",
+                sub_type: "url",
+                index: 0,
+                parameters: [
+                    {
+                        type: "text",
+                        text: otpCode // DYNAMIC OTP GOES HERE
+                    }
+                ]
+            }
+        ],
+        carouselCards: [],
+        location: {},
+        attributes: {},
+        paramsFallbackValue: {
+            FirstName: "user"
+        }
+    };
+
+    try {
+        // 2. Send request to NeoDove
+        const response = await axios.post(API_URL, payload, {
+            headers: {
+                "Content-Type": "application/json"
+            }
+        });
+
+        // 3. Return success to frontend
+        res.json({ success: true, message: "OTP Sent successfully", data: response.data });
+
+    } catch (error) {
+        console.error("Error sending OTP:", error.response ? error.response.data : error.message);
+        res.status(500).json({ success: false, message: "Failed to send OTP" });
+    }
 });
 
-const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
-const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
-
-const GOOGLE_SHEET_URL =
-  "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
-
-app.post("/send-otp", async (req, res) => {
-  const { phoneNumber, otpCode, name, board, city, course } = req.body;
-
-  if (!phoneNumber || !otpCode) {
-    return res.status(400).json({ success: false });
-  }
-
-  const payload = {
-    apiKey: API_KEY,
-    campaignName: "OTP5",
-    destination: phoneNumber,
-    templateParams: [otpCode],
-    source: "website-otp-form"
-  };
-
-  try {
-    await axios.post(API_URL, payload, {
-      headers: { "Content-Type": "application/json" }
-    });
-
-    await axios.post(GOOGLE_SHEET_URL, {
-      name,
-      board,
-      city,
-      course,
-      phone: phoneNumber
-    });
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false });
-  }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(3000, () => console.log('Server running on port 3000'));
