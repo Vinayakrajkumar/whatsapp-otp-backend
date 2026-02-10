@@ -46,7 +46,7 @@ app.post("/send-otp", async (req, res) => {
     }, {
       headers: { 
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}` // FIXED: Removed triple quotes and backticks
+        "Authorization": `Bearer ${API_KEY}`
       }
     });
     
