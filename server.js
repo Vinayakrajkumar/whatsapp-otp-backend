@@ -52,8 +52,9 @@ app.post("/send-otp", async (req, res) => {
       },
       {
         headers: {
-          "Content-Type": "application/json",
-          apiKey: NEODOVE_API_KEY        // ✅ REQUIRED by NeoDove
+  "Content-Type": "application/json",
+  "X-API-KEY": process.env.NEODOVE_API_KEY
+}
         }
       }
     );
