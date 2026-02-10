@@ -14,7 +14,7 @@ app.use(cors());
 const API_URL =
   "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
-const API_KEY = process.env.NEODOVE_API_KEY;
+const API_KEY = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw;
 
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
@@ -48,21 +48,21 @@ app.post("/send-otp", async (req, res) => {
   try {
     /* 1️⃣ Send WhatsApp OTP */
     await axios.post(
-      API_URL,
-      {
-        campaignName: "OTP5",
-        templateName: "otpweb5",
-        destination: phoneNumber,
-        templateParams: [otpCode],
-        source: "website-otp-form"
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          apiKey: API_KEY
-        }
-      }
-    );
+  API_URL,
+  {
+    campaignName: "OTP5",
+    templateName: "otpweb5",
+    destination: phoneNumber,
+    templateParams: [otpCode],
+    source: "website-otp-form"
+  },
+  {
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": API_KEY   // 🔴 CHANGE IS HERE
+    }
+  }
+);
 
     /* 2️⃣ Store OTP (2 min expiry) */
     otpStore.set(phoneNumber, {
