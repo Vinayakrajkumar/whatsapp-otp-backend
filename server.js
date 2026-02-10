@@ -9,7 +9,7 @@ app.use(cors());
 
 /* ================== CONFIG ================== */
 
-// 🔥 FIXED: The URL must point to the specific 'send' endpoint
+// 🔥 FIXED: The correct Neodove V2 send endpoint
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
 const API_KEY = process.env.NEODOVE_API_KEY; 
@@ -20,7 +20,7 @@ const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbkl
 
 /* ================== STORAGE ================== */
 const otpStore = {};
-const registeredUsers = {}; // To prevent repeated registrations
+const registeredUsers = {}; 
 
 /* ================== ROUTES ================== */
 
@@ -31,9 +31,11 @@ app.get("/", (req, res) => {
 app.post("/send-otp", async (req, res) => {
   let { phoneNumber, name, board, city, course } = req.body;
 
-  if (!phoneNumber || !name) return res.status(400).json({ success: false });
+  if (!phoneNumber || !name) {
+    return res.status(400).json({ success: false, message: "Missing info" });
+  }
 
-  // 1. Check if user already registered in this session
+  // Check if number already registered in this session
   if (registeredUsers[phoneNumber]) {
     return res.status(409).json({ 
       success: false, 
@@ -49,11 +51,11 @@ app.post("/send-otp", async (req, res) => {
   };
 
   try {
-    // 🔥 FIXED: Neodove requires Authorization Header, not apiKey in body
+    // 🔥 FIXED: API Key MUST be in Headers, not the body
     await axios.post(API_URL, {
       campaignName: CAMPAIGN_NAME,
       destination: phoneNumber,
-      templateName: "otpweb5", // Ensure this matches your template exactly
+      templateName: "otpweb5",
       templateParams: [otp],
       source: SOURCE
     }, {
@@ -79,7 +81,7 @@ app.post("/verify-otp", async (req, res) => {
   }
 
   try {
-    // Move to Google Sheets
+    // Save to Google Sheets
     await axios.post(GOOGLE_SHEET_URL, {
       name: record.user.name,
       board: record.user.board,
@@ -88,7 +90,7 @@ app.post("/verify-otp", async (req, res) => {
       phone: phoneNumber
     });
 
-    registeredUsers[phoneNumber] = true; // Mark as registered
+    registeredUsers[phoneNumber] = true; 
     delete otpStore[phoneNumber];
     res.json({ success: true });
   } catch (err) {
@@ -97,4 +99,4 @@ app.post("/verify-otp", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
