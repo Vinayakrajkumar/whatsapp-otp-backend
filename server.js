@@ -3,19 +3,18 @@ const axios = require("axios");
 const cors = require("cors");
 
 const app = express();
-
 app.use(express.json());
 app.use(cors());
 
 app.get("/", (req, res) => {
-  res.send("OTP Backend Live");
+  res.send("Legacy OTP Backend Live");
 });
 
-const API_URL =
-  "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
+// 🔴 OLD LEGACY ENDPOINT
+const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 
-// 🔴 Hard-code ONLY for testing
-const API_KEY = "YOUR_REAL_API_KEY_HERE";
+// 🔴 HARD-CODE ONLY FOR TEST
+const API_KEY = "YOUR_REAL_NEODOVE_API_KEY";
 
 app.post("/send-otp", async (req, res) => {
   const { phoneNumber, otpCode } = req.body;
@@ -25,26 +24,17 @@ app.post("/send-otp", async (req, res) => {
   }
 
   try {
-    await axios.post(
-      API_URL,
-      {
-        campaignName: "OTP5",
-        templateName: "otpweb5",
-        destination: phoneNumber,
-        templateParams: [otpCode],
-        source: "website-otp-form"
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          apiKey: API_KEY
-        }
-      }
-    );
+    await axios.post(API_URL, {
+      apiKey: API_KEY,          // 🔴 apiKey IN BODY
+      campaignName: "OTP5",
+      destination: phoneNumber,
+      templateParams: [otpCode],
+      source: "website-otp-form"
+    });
 
     res.json({ success: true });
   } catch (err) {
-    console.error("NEODOVE ERROR:", err.response?.data || err.message);
+    console.error("LEGACY ERROR:", err.response?.data || err.message);
     res.status(401).json({ success: false });
   }
 });
