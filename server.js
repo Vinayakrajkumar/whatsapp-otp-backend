@@ -10,7 +10,6 @@ app.use(cors());
 // --- CONFIGURATION ---
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
-// Ensure these match your Render Environment Variable names exactly
 const API_KEY = process.env.NEODOVE_API_KEY; 
 const CAMPAIGN_NAME = process.env.NEODOVE_CAMPAIGN_NAME;
 const SOURCE = process.env.NEODOVE_SOURCE;
@@ -19,7 +18,7 @@ const otpStore = {};
 const registeredUsers = {}; 
 
 app.get("/", (req, res) => {
-  res.send("✅ OTP Backend is Live");
+  res.send("✅ OTP Backend Live");
 });
 
 app.post("/send-otp", async (req, res) => {
@@ -33,7 +32,7 @@ app.post("/send-otp", async (req, res) => {
   otpStore[phoneNumber] = { otp, expires: Date.now() + 5 * 60 * 1000 };
 
   try {
-    // 🔥 THE CRITICAL FIX: Headers must contain the Bearer token
+    // 🔥 HEADERS MUST BE EXACTLY LIKE THIS
     const response = await axios.post(API_URL, {
       campaignName: CAMPAIGN_NAME,
       destination: phoneNumber,
@@ -47,10 +46,9 @@ app.post("/send-otp", async (req, res) => {
       }
     });
     
-    console.log("Neodove Success:", response.data);
     res.json({ success: true });
   } catch (err) {
-    // This logs the specific reason Neodove is rejecting the key
+    // This will print the EXACT error from Neodove in your Render logs
     console.error("❌ NEODOVE REJECTION:", err.response?.data || err.message);
     res.status(500).json({ success: false });
   }
@@ -68,10 +66,4 @@ app.post("/verify-otp", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server on port ${PORT}`);
-    console.log("Checking Config: ", { 
-        hasKey: !!API_KEY, 
-        hasCampaign: !!CAMPAIGN_NAME 
-    });
-});
+app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));
