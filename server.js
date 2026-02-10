@@ -21,10 +21,11 @@ app.get("/", (req, res) => {
 });
 
 app.post("/send-otp", async (req, res) => {
-  let { phoneNumber } = req.body;
+  const { phoneNumber } = req.body;
 
-  // Basic validation
-  if (!phoneNumber) return res.status(400).json({ success: false, message: "Phone number is required" });
+  if (!phoneNumber) {
+    return res.status(400).json({ success: false, message: "Phone number required" });
+  }
 
   if (registeredUsers[phoneNumber]) {
     return res.status(409).json({ success: false, message: "Already registered" });
@@ -34,39 +35,37 @@ app.post("/send-otp", async (req, res) => {
   const otp = String(Math.floor(1000 + Math.random() * 9000));
   otpStore[phoneNumber] = { otp, expires: Date.now() + 5 * 60 * 1000 };
 
-  console.log(`Attempting to send OTP to ${phoneNumber}...`);
+  console.log(`Sending OTP to ${phoneNumber}...`);
 
   try {
     const response = await axios.post(API_URL, {
       campaignName: CAMPAIGN_NAME,
       destination: phoneNumber,
       templateName: "otpweb5",
-      templateParams: [otp], // This must be an array
+      templateParams: [otp],
       source: SOURCE
     }, {
       headers: { 
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${API_KEY}`
+        "Authorization": `Bearer ${API_KEY}` 
       }
     });
     
     console.log("✅ NeoDove Success:", response.data);
     res.json({ success: true });
   } catch (err) {
-    // This logs the exact reason (Invalid Key, Template mismatch, etc.)
-    console.error("❌ NEODOVE REJECTION:", err.response?.data || err.message);
-    res.status(err.response?.status || 500).json({ 
-      success: false, 
-      error: err.response?.data?.message || "Unauthorized or API Error" 
-    });
+    // 401 error will be caught here and logged clearly
+    const errorData = err.response?.data || err.message;
+    console.error("❌ NEODOVE REJECTION:", errorData);
+    res.status(err.response?.status || 500).json({ success: false, error: errorData });
   }
 });
 
 app.post("/verify-otp", (req, res) => {
-  let { phoneNumber, otp } = req.body;
-  const storedData = otpStore[phoneNumber];
+  const { phoneNumber, otp } = req.body;
+  const stored = otpStore[phoneNumber];
 
-  if (storedData && storedData.otp === String(otp) && Date.now() < storedData.expires) {
+  if (stored && stored.otp === String(otp) && Date.now() < stored.expires) {
     registeredUsers[phoneNumber] = true;
     delete otpStore[phoneNumber];
     res.json({ success: true });
@@ -78,10 +77,8 @@ app.post("/verify-otp", (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    
-    // Safety check for Render logs
     if (!API_KEY) {
-        console.error("CRITICAL ERROR: NEODOVE_API_KEY is not defined in Environment Variables!");
+        console.error("CRITICAL: NEODOVE_API_KEY is missing from environment variables!");
     } else {
         console.log(`Config Loaded. Key starts with: ${API_KEY.substring(0, 5)}...`);
     }
