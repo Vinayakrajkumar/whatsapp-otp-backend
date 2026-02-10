@@ -1,74 +1,65 @@
 const express = require("express");
 const axios = require("axios");
 const cors = require("cors");
-require('dotenv').config();
+require("dotenv").config();
 
 const app = express();
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-// Temporary memory store for OTPs
-const otpStore = {};
-
-// Your confirmed working NeoDove endpoint
-const NEODOVE_API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
-
 app.get("/", (req, res) => {
-  res.send("NeoDove OTP Backend is Active");
+  res.send(`
+    <div style="font-family: Arial, sans-serif; text-align: center; margin-top: 50px;">
+      <h1 style="color: #28a745;">✅ OTP Backend is Live</h1>
+      <p>Your server is running correctly on Render.</p>
+      <p>Ready to receive requests at <code>/send-otp</code></p>
+    </div>
+  `);
 });
 
-/**
- * ROUTE 1: Generate and Send OTP via NeoDove
- */
-app.post("/send-otp", async (req, res) => {
-  const { phoneNumber } = req.body;
+const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
+const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
 
-  if (!phoneNumber) {
-    return res.status(400).json({ success: false, message: "Phone number required" });
+const GOOGLE_SHEET_URL =
+  "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
+
+app.post("/send-otp", async (req, res) => {
+  const { phoneNumber, otpCode, name, board, city, course } = req.body;
+
+  if (!phoneNumber || !otpCode) {
+    return res.status(400).json({ success: false });
   }
 
-  // Generate 4-digit code (kept on server for security)
-  const generatedOtp = Math.floor(1000 + Math.random() * 9000).toString();
-  otpStore[phoneNumber] = generatedOtp;
+  const payload = {
+    apiKey: API_KEY,
+    campaignName: "OTP5",
+    destination: phoneNumber,
+    templateParams: [otpCode],
+    source: "website-otp-form"
+  };
 
   try {
-    const response = await axios.post(
-      NEODOVE_API_URL,
-      {
-        apiKey: process.env.NEODOVE_API_KEY, // Use your long JWT key here
-        campaignName: "OTP5",
-        destination: phoneNumber,
-        userName: "Website Visitor", 
-        source: "website-otp-form",
-        templateParams: generatedOtp // String format as per your schema
-      },
-      {
-        headers: { "Content-Type": "application/json" }
-      }
-    );
+    await axios.post(API_URL, payload, {
+      headers: { "Content-Type": "application/json" }
+    });
 
-    console.log("NeoDove Response:", response.data);
+    await axios.post(GOOGLE_SHEET_URL, {
+      name,
+      board,
+      city,
+      course,
+      phone: phoneNumber
+    });
+
     res.json({ success: true });
   } catch (err) {
-    // Log the error specifically to catch 404/401 issues
-    console.error("NeoDove Error Payload:", err.response?.data || err.message);
-    res.status(500).json({ success: false, error: "Failed to connect to NeoDove" });
+    res.status(500).json({ success: false });
   }
-});
-
-/**
- * ROUTE 2: Verify the user-entered OTP
- */
-app.post("/verify-otp", (req, res) => {
-  const { phoneNumber, userOtp } = req.body;
-
-  if (otpStore[phoneNumber] && otpStore[phoneNumber] === userOtp) {
-    delete otpStore[phoneNumber]; // Success: Clear code after verification
-    return res.json({ success: true });
-  }
-
-  res.status(400).json({ success: false, message: "Invalid or expired OTP" });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
