@@ -1,54 +1,33 @@
-const express = require("express");
-const axios = require("axios");
-const cors = require("cors");
-
-const app = express();
-app.use(express.json());
-app.use(cors());
-
-app.get("/", (req, res) => {
-  res.send("OTP Backend Live");
-});
-
-const NEODOVE_API_URL =
-  "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
-
-const NEODOVE_API_KEY = process.env.NEODOVE_API_KEY;
-
-app.post("/send-otp", async (req, res) => {
-  const { phoneNumber, otpCode } = req.body;
-
-  if (!phoneNumber || !otpCode) {
-    return res.status(400).json({ success: false });
+async function sendOtp() {
+  const phone = "91" + document.getElementById("phone").value.trim();
+  // ... validation logic ...
+  
+  const response = await fetch(`${BACKEND_URL}/send-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phoneNumber: phone })
+  });
+  
+  if (response.ok) {
+    document.getElementById("otpSection").style.display = "block";
+    alert("OTP Sent!");
   }
+}
 
-  try {
-    await axios.post(
-      NEODOVE_API_URL,
-      {
-        campaignName: "OTP5",
-        templateName: "otpweb5",
-        destination: phoneNumber,
-        templateParams: [otpCode],
-        source: "website-otp-form"
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          apiKey: NEODOVE_API_KEY   // MUST be a plain API key
-        }
-      }
-    );
+async function submitForm() {
+  const phone = "91" + document.getElementById("phone").value.trim();
+  const enteredOtp = document.getElementById("otpInput").value.trim();
 
-    res.json({ success: true });
+  const response = await fetch(`${BACKEND_URL}/verify-otp`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ phoneNumber: phone, userOtp: enteredOtp })
+  });
 
-  } catch (err) {
-    console.error("NEODOVE STATUS:", err.response?.status);
-    console.error("NEODOVE DATA:", err.response?.data);
-    res.status(401).json({ success: false });
+  const result = await response.json();
+  if (result.success) {
+    window.location.href = THANK_YOU_URL;
+  } else {
+    alert("Invalid OTP code. Please try again.");
   }
-});
-
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
-});
+}
