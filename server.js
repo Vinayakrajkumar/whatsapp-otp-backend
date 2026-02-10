@@ -55,7 +55,7 @@ app.post("/send-otp", async (req, res) => {
   phoneNumber = normalizePhone(phoneNumber);
 
   // ✅ Generate OTP in backend
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+ const otp = String(Math.floor(1000 + Math.random() * 9000));
 
   otpStore[phoneNumber] = {
     otp,
@@ -73,7 +73,7 @@ app.post("/send-otp", async (req, res) => {
         // 🔥 THIS IS THE KEY FIX
         userName: phoneNumber,
 
-        templateParams: [otp],
+        templateParams: [String(otp)],
         source: SOURCE
       },
       {
