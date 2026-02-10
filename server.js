@@ -9,9 +9,10 @@ app.use(cors());
 
 /* ================== CONFIG ================== */
 
-// 🔥 FIXED: The correct Neodove V2 send endpoint
+// 🔥 FIXED: This is the correct Neodove V2 send endpoint
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
+// Ensure these match your Render Environment Variable names exactly
 const API_KEY = process.env.NEODOVE_API_KEY; 
 const CAMPAIGN_NAME = process.env.NEODOVE_CAMPAIGN_NAME;
 const SOURCE = process.env.NEODOVE_SOURCE;
@@ -35,7 +36,6 @@ app.post("/send-otp", async (req, res) => {
     return res.status(400).json({ success: false, message: "Missing info" });
   }
 
-  // Check if number already registered in this session
   if (registeredUsers[phoneNumber]) {
     return res.status(409).json({ 
       success: false, 
@@ -51,7 +51,7 @@ app.post("/send-otp", async (req, res) => {
   };
 
   try {
-    // 🔥 FIXED: API Key MUST be in Headers, not the body
+    // 🔥 FIXED: API Key MUST be in Headers formatted as 'Bearer YOUR_KEY'
     await axios.post(API_URL, {
       campaignName: CAMPAIGN_NAME,
       destination: phoneNumber,
