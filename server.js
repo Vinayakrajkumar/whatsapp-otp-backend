@@ -8,10 +8,9 @@ app.use(express.json());
 app.use(cors());
 
 // --- CONFIGURATION ---
-// FIXED: This is the correct send endpoint for Neodove V2
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
-// Ensure these match your Render Environment Variable names EXACTLY
+// Ensure these match your Render Environment Variable names exactly
 const API_KEY = process.env.NEODOVE_API_KEY; 
 const CAMPAIGN_NAME = process.env.NEODOVE_CAMPAIGN_NAME;
 const SOURCE = process.env.NEODOVE_SOURCE;
@@ -20,13 +19,12 @@ const otpStore = {};
 const registeredUsers = {}; 
 
 app.get("/", (req, res) => {
-  res.send("✅ OTP Backend Running");
+  res.send("✅ OTP Backend is Live");
 });
 
 app.post("/send-otp", async (req, res) => {
-  let { phoneNumber, name, board, city, course } = req.body;
+  let { phoneNumber } = req.body;
 
-  // Duplicate Check
   if (registeredUsers[phoneNumber]) {
     return res.status(409).json({ success: false, message: "Already registered" });
   }
@@ -35,8 +33,8 @@ app.post("/send-otp", async (req, res) => {
   otpStore[phoneNumber] = { otp, expires: Date.now() + 5 * 60 * 1000 };
 
   try {
-    // 🔥 THE FIX: API Key MUST be in the Headers, not the body
-    await axios.post(API_URL, {
+    // 🔥 THE CRITICAL FIX: Headers must contain the Bearer token
+    const response = await axios.post(API_URL, {
       campaignName: CAMPAIGN_NAME,
       destination: phoneNumber,
       templateName: "otpweb5",
@@ -48,9 +46,12 @@ app.post("/send-otp", async (req, res) => {
         "Authorization": `Bearer ${API_KEY}` 
       }
     });
+    
+    console.log("Neodove Success:", response.data);
     res.json({ success: true });
   } catch (err) {
-    console.error("❌ OTP SEND ERROR:", err.response?.data || err.message);
+    // This logs the specific reason Neodove is rejecting the key
+    console.error("❌ NEODOVE REJECTION:", err.response?.data || err.message);
     res.status(500).json({ success: false });
   }
 });
@@ -67,4 +68,10 @@ app.post("/verify-otp", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Server on port ${PORT}`);
+    console.log("Checking Config: ", { 
+        hasKey: !!API_KEY, 
+        hasCampaign: !!CAMPAIGN_NAME 
+    });
+});
