@@ -5,12 +5,12 @@ require("dotenv").config();
 
 const app = express();
 
-// ────────── MIDDLEWARE ──────────
+/* ───────────── MIDDLEWARE ───────────── */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-// ────────── CONFIG ──────────
+/* ───────────── CONFIG ───────────── */
 const API_URL =
   "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
@@ -19,36 +19,41 @@ const API_KEY = process.env.NEODOVE_API_KEY;
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
 
-// ────────── ROOT CHECK ──────────
+/* ───────────── OTP STORE (in-memory) ───────────── */
+const otpStore = new Map();
+
+/* ───────────── ROOT CHECK ───────────── */
 app.get("/", (req, res) => {
   res.send(`
     <div style="text-align:center;margin-top:40px;font-family:Arial">
       <h1>✅ OTP Backend Live</h1>
-      <p>Use <code>/send-otp</code> to send WhatsApp OTP</p>
+      <p>Endpoints:</p>
+      <p><code>POST /send-otp</code></p>
+      <p><code>POST /verify-otp</code></p>
     </div>
   `);
 });
 
-// ────────── SEND OTP ──────────
+/* ───────────── SEND OTP ───────────── */
 app.post("/send-otp", async (req, res) => {
-  const { phoneNumber, otpCode, name, board, city, course } = req.body;
+  const { phoneNumber, name, board, city, course } = req.body;
 
-  if (!phoneNumber || !otpCode) {
-    return res.status(400).json({
-      success: false,
-      message: "Phone number or OTP missing"
-    });
+  if (!phoneNumber) {
+    return res.status(400).json({ success: false, message: "Phone missing" });
   }
 
+  // 🔐 Generate 4-digit OTP
+  const otpCode = Math.floor(1000 + Math.random() * 9000).toString();
+
   try {
-    // 1️⃣ Send WhatsApp OTP via NeoDove
+    /* 1️⃣ Send WhatsApp OTP */
     await axios.post(
       API_URL,
       {
         campaignName: "OTP5",
         templateName: "otpweb5",
         destination: phoneNumber,
-        templateParams: [otpCode], // MUST be array
+        templateParams: [otpCode],
         source: "website-otp-form"
       },
       {
@@ -59,37 +64,61 @@ app.post("/send-otp", async (req, res) => {
       }
     );
 
-    // 2️⃣ Save lead + OTP to Google Sheets
+    /* 2️⃣ Store OTP (2 min expiry) */
+    otpStore.set(phoneNumber, {
+      otp: otpCode,
+      expiresAt: Date.now() + 2 * 60 * 1000
+    });
+
+    /* 3️⃣ Save lead to Google Sheet */
     const sheetPayload = new URLSearchParams({
       name: name || "",
       board: board || "",
       city: city || "",
       course: course || "",
-      phone: phoneNumber,
-      otp: otpCode
+      phone: phoneNumber
     });
 
     await axios.post(GOOGLE_SHEET_URL, sheetPayload.toString(), {
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      }
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }
     });
 
     res.json({ success: true });
   } catch (err) {
-    console.error(
-      "❌ NeoDove Error:",
-      err.response?.data || err.message
-    );
-
-    res.status(401).json({
-      success: false,
-      error: "OTP send failed"
-    });
+    console.error("❌ SEND OTP ERROR:", err.response?.data || err.message);
+    res.status(500).json({ success: false });
   }
 });
 
-// ────────── START SERVER ──────────
+/* ───────────── VERIFY OTP ───────────── */
+app.post("/verify-otp", (req, res) => {
+  const { phoneNumber, otpCode } = req.body;
+
+  if (!phoneNumber || !otpCode) {
+    return res.json({ success: false });
+  }
+
+  const record = otpStore.get(phoneNumber);
+
+  if (!record) {
+    return res.json({ success: false });
+  }
+
+  if (Date.now() > record.expiresAt) {
+    otpStore.delete(phoneNumber);
+    return res.json({ success: false });
+  }
+
+  if (record.otp !== otpCode) {
+    return res.json({ success: false });
+  }
+
+  // ✅ OTP verified
+  otpStore.delete(phoneNumber);
+  res.json({ success: true });
+});
+
+/* ───────────── START SERVER ───────────── */
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
