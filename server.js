@@ -7,7 +7,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-/* ================== ENV VARIABLES ================== */
+/* ================== CONFIG ================== */
 
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2";
 
@@ -18,46 +18,48 @@ const SOURCE = process.env.NEODOVE_SOURCE;
 const GOOGLE_SHEET_URL =
   "https://script.google.com/macros/s/AKfycbyeeCB5b7vcbklHEwZZP-kv6fAxJHkJWAz41qWn0GPlx3KjkpseWXONRH2HpyuXI2Q/exec";
 
-/* ================== OTP STORE (IN-MEMORY) ================== */
+/* ================== HELPERS ================== */
+
+function normalizePhone(phone) {
+  // Remove +, spaces, anything non-numeric
+  return phone.replace(/[^0-9]/g, "");
+}
+
+/* ================== OTP STORE ================== */
 /*
-  Structure:
-  {
-    "919XXXXXXXXX": {
-      otp: "1234",
-      expires: timestamp,
-      verified: false,
-      user: { name, board, city, course }
-    }
+{
+  "919XXXXXXXXX": {
+    otp: "1234",
+    expires: timestamp,
+    user: { name, board, city, course }
   }
+}
 */
 const otpStore = {};
 
-/* ================== HEALTH CHECK ================== */
+/* ================== ROUTES ================== */
 
 app.get("/", (req, res) => {
-  res.send("✅ OTP Backend is Live");
+  res.send("✅ OTP Backend Running");
 });
 
-/* ================== SEND OTP ================== */
-
+/* ---------- SEND OTP ---------- */
 app.post("/send-otp", async (req, res) => {
-  const { phoneNumber, name, board, city, course } = req.body;
+  let { phoneNumber, name, board, city, course } = req.body;
 
   if (!phoneNumber || !name || !board || !city || !course) {
-    return res.status(400).json({
-      success: false,
-      message: "Missing required fields"
-    });
+    return res.status(400).json({ success: false, message: "Missing fields" });
   }
 
-  // Generate 4-digit OTP
+  // ✅ Normalize phone number for Neodove
+  phoneNumber = normalizePhone(phoneNumber);
+
+  // ✅ Generate OTP in backend
   const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
-  // Store OTP
   otpStore[phoneNumber] = {
     otp,
     expires: Date.now() + 5 * 60 * 1000, // 5 minutes
-    verified: false,
     user: { name, board, city, course }
   };
 
@@ -67,64 +69,50 @@ app.post("/send-otp", async (req, res) => {
       {
         apiKey: API_KEY,
         campaignName: CAMPAIGN_NAME,
-        destination: phoneNumber,
+
+        // 🔥 THIS IS THE KEY FIX
+        userName: phoneNumber,
+
         templateParams: [otp],
         source: SOURCE
       },
-      { headers: { "Content-Type": "application/json" } }
+      {
+        headers: { "Content-Type": "application/json" }
+      }
     );
 
     res.json({ success: true });
   } catch (err) {
-    console.error("❌ OTP SEND ERROR:", err.response?.data || err.message);
-    res.status(500).json({
-      success: false,
-      message: "OTP delivery failed"
-    });
+    console.error(
+      "❌ OTP SEND ERROR:",
+      err.response?.data || err.message
+    );
+    res.status(500).json({ success: false });
   }
 });
 
-/* ================== VERIFY OTP ================== */
-
+/* ---------- VERIFY OTP ---------- */
 app.post("/verify-otp", async (req, res) => {
-  const { phoneNumber, otp } = req.body;
+  let { phoneNumber, otp } = req.body;
 
+  phoneNumber = normalizePhone(phoneNumber);
   const record = otpStore[phoneNumber];
 
   if (!record) {
-    return res.status(400).json({
-      success: false,
-      message: "OTP not found"
-    });
+    return res.status(400).json({ success: false, message: "OTP not found" });
   }
 
   if (Date.now() > record.expires) {
     delete otpStore[phoneNumber];
-    return res.status(400).json({
-      success: false,
-      message: "OTP expired"
-    });
+    return res.status(400).json({ success: false, message: "OTP expired" });
   }
 
   if (record.otp !== otp) {
-    return res.status(400).json({
-      success: false,
-      message: "Invalid OTP"
-    });
+    return res.status(400).json({ success: false, message: "Invalid OTP" });
   }
-
-  if (record.verified) {
-    return res.status(400).json({
-      success: false,
-      message: "OTP already used"
-    });
-  }
-
-  // Mark verified
-  record.verified = true;
 
   try {
-    // Save to Google Sheet AFTER verification
+    // ✅ Save ONLY after OTP verification
     await axios.post(GOOGLE_SHEET_URL, {
       name: record.user.name,
       board: record.user.board,
@@ -134,14 +122,10 @@ app.post("/verify-otp", async (req, res) => {
     });
 
     delete otpStore[phoneNumber];
-
     res.json({ success: true });
   } catch (err) {
     console.error("❌ SHEET ERROR:", err.message);
-    res.status(500).json({
-      success: false,
-      message: "Failed to save data"
-    });
+    res.status(500).json({ success: false });
   }
 });
 
