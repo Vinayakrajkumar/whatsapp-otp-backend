@@ -19,14 +19,22 @@ app.post("/send-otp", async (req, res) => {
   }
 
   try {
-    await axios.post(API_URL, {
-      apiKey: API_KEY,              // legacy: key in body
-      campaignName: "OTP5",
-      templateName: "otpweb5",      // REQUIRED
-      destination: phoneNumber,     // 91XXXXXXXXXX
-      templateParams: [otpCode],
-      source: "website-otp-form"
-    });
+    await axios.post(
+  "https://backend.api-wa.co/campaign/neodove/api/v2/message/send",
+  {
+    campaignName: "OTP5",
+    templateName: "otpweb5",
+    destination: phoneNumber,
+    templateParams: [otpCode],
+    source: "website-otp-form"
+  },
+  {
+    headers: {
+      "Content-Type": "application/json",
+      apiKey: API_KEY   // 🔑 MUST be header
+    }
+  }
+);
 
     res.json({ success: true });
   } catch (err) {
