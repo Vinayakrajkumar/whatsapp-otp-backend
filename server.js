@@ -17,15 +17,27 @@ app.get("/", (req, res) => {
 const NEODOVE_API_URL =
   "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
-// ⚠️ Use ENV in real deploy. Hard-code only for testing.
-const NEODOVE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
+/**
+ * IMPORTANT:
+ * Set this in Render → Environment Variables
+ * KEY   : NEODOVE_API_KEY
+ * VALUE : <your NEW api key>
+ */
+const NEODOVE_API_KEY = process.env.NEODOVE_API_KEY;
 
-/* ───────── Send OTP (Frontend → Backend → NeoDove) ───────── */
+if (!NEODOVE_API_KEY) {
+  throw new Error("❌ NEODOVE_API_KEY is missing in environment variables");
+}
+
+/* ───────── Send OTP ───────── */
 app.post("/send-otp", async (req, res) => {
   const { phoneNumber, otpCode } = req.body;
 
   if (!phoneNumber || !otpCode) {
-    return res.status(400).json({ success: false, message: "Missing data" });
+    return res.status(400).json({
+      success: false,
+      message: "phoneNumber and otpCode are required"
+    });
   }
 
   try {
@@ -40,18 +52,18 @@ app.post("/send-otp", async (req, res) => {
       },
       {
         headers: {
-  "Content-Type": "application/json",
-  apiKey: NEODOVE_API_KEY
-}
+          "Content-Type": "application/json",
+          apiKey: NEODOVE_API_KEY        // ✅ REQUIRED by NeoDove
         }
       }
     );
 
-    res.json({ success: true });
+    return res.json({ success: true });
+
   } catch (err) {
-    console.error("NEODOVE ERROR STATUS:", err.response?.status);
-    console.error("NEODOVE ERROR DATA:", err.response?.data);
-    res.status(401).json({ success: false });
+    console.error("NEODOVE STATUS:", err.response?.status);
+    console.error("NEODOVE DATA:", err.response?.data);
+    return res.status(401).json({ success: false });
   }
 });
 
