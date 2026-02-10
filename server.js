@@ -18,7 +18,7 @@ const NEODOVE_API_URL =
   "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
 // ⚠️ Use ENV in real deploy. Hard-code only for testing.
-const NEODOVE_API_KEY = "YOUR_REAL_NEODOVE_API_KEY";
+const NEODOVE_API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MTcxNjE0OGQyZDk2MGQzZmVhZjNmMSIsIm5hbWUiOiJCWFEgPD4gTWlnaHR5IEh1bmRyZWQgVGVjaG5vbG9naWVzIFB2dCBMdGQiLCJhcHBOYW1lIjoiQWlTZW5zeSIsImNsaWVudElkIjoiNjkxNzE2MTQ4ZDJkOTYwZDNmZWFmM2VhIiwiYWN0aXZlUGxhbiI6Ik5PTkUiLCJpYXQiOjE3NjMxMjA2NjB9.8jOtIkz5c455LWioAa7WNzvjXlqCN564TzM12yQQ5Cw";
 
 /* ───────── Send OTP (Frontend → Backend → NeoDove) ───────── */
 app.post("/send-otp", async (req, res) => {
