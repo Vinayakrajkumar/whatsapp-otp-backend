@@ -7,7 +7,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// --- CONFIGURATION ---
 const API_URL = "https://backend.api-wa.co/campaign/neodove/api/v2/message/send";
 
 const API_KEY = process.env.NEODOVE_API_KEY; 
@@ -32,7 +31,6 @@ app.post("/send-otp", async (req, res) => {
   otpStore[phoneNumber] = { otp, expires: Date.now() + 5 * 60 * 1000 };
 
   try {
-    // 🔥 HEADERS MUST BE EXACTLY LIKE THIS
     const response = await axios.post(API_URL, {
       campaignName: CAMPAIGN_NAME,
       destination: phoneNumber,
@@ -48,7 +46,7 @@ app.post("/send-otp", async (req, res) => {
     
     res.json({ success: true });
   } catch (err) {
-    // This will print the EXACT error from Neodove in your Render logs
+    // 🔍 This will print the specific reason from Neodove in Render logs
     console.error("❌ NEODOVE REJECTION:", err.response?.data || err.message);
     res.status(500).json({ success: false });
   }
@@ -66,4 +64,12 @@ app.post("/verify-otp", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server running on ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on ${PORT}`);
+    // 🔒 Debugging: Check if key exists (shows first 5 chars only)
+    if (API_KEY) {
+        console.log(`Config Loaded. Key starts with: ${API_KEY.substring(0, 5)}...`);
+    } else {
+        console.log("CRITICAL: NEODOVE_API_KEY is missing in Render Environment!");
+    }
+});
